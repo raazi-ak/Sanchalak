@@ -1,3 +1,13 @@
+# version: "3.9"
+
+# services:
+#   orchestrator:
+#     build: ./services/orchestrator
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - ./services/orchestrator/uploads:/app/uploads
+
 version: "3.9"
 
 services:
@@ -7,3 +17,23 @@ services:
       - "8000:8000"
     volumes:
       - ./services/orchestrator/uploads:/app/uploads
+
+  efr_db:
+    build: ./services/efr_db
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
