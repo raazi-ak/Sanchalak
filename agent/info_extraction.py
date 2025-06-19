@@ -11,8 +11,7 @@ import spacy
 from spacy.matcher import Matcher, PhraseMatcher
 import json
 import os
-# Add these imports
-from app.agents.info_extraction import EnhancedInfoExtractionAgent  # Updated import
+# Add these imports# Updated import
 from app.agents.eligibility_checker import EligibilityCheckerAgent
 from app.agents.vector_db import VectorDBAgent
 from app.agents.web_scraper import WebScraperAgent

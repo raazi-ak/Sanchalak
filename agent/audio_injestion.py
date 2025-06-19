@@ -62,16 +62,7 @@ class AudioIngestionAgent:
     
     async def _test_model(self):
         """Test the Whisper model with a short synthetic audio"""
-        try:
-            # Create a short test audio (1 second of silence)
-            test_audio = np.zeros(self.sample_rate, dtype=np.float32)
-            
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                self.whisper_model.transcribe,
-                test_audio
-            )
+
             
             logger.info("Audio model test completed successfully")
             

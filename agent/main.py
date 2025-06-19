@@ -243,11 +243,14 @@ async def process_farmer_request(
                     detail=f"Unsupported audio format: {audio_file.content_type}"
                 )
             
-            if audio_file.size > settings.max_audio_size_mb * 1024 * 1024:
+            contents = await audio_file.read()
+            audio_file.seek(0)
+            if len(contents) > settings.max_audio_size_mb * 1024 * 1024:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Audio file too large. Maximum size: {settings.max_audio_size_mb}MB"
-                )
+                status_code=400,
+                detail=f"Audio file too large. Max size is {settings.max_audio_size_mb}MB"
+            )
+
             
             # Process audio
             audio_result = await agents["audio"].process_audio(
