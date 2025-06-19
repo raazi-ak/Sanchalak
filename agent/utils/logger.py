@@ -1,136 +1,377 @@
 """
-Logger utility for Farmer AI Pipeline
-
-Provides structured logging with proper formatting and levels
+Audio Ingestion Agent
+Handles audio file processing, transcription using Whisper, and language detection
 """
 
-import logging
-import sys
 import os
-from datetime import datetime
-from typing import Optional
+import tempfile
+import time
+import asyncio
+from typing import Optional, BinaryIO
+import whisper
+import librosa
+import numpy as np
+from pydub import AudioSegment
+from langdetect import detect, DetectorFactory
+import torch
 
-def setup_logger(
-    name: str,
-    level: str = "INFO",
-    log_file: Optional[str] = None,
-    format_string: Optional[str] = None
-) -> logging.Logger:
-    """
-    Setup logger with proper formatting and handlers
-    
-    Args:
-        name: Logger name
-        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Optional log file path
-        format_string: Optional custom format string
-        
-    Returns:
-        Configured logger instance
-    """
-    
-    # Create logger
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Clear existing handlers
-    logger.handlers.clear()
-    
-    # Create formatter
-    if not format_string:
-        format_string = (
-            "%(asctime)s - %(name)s - %(levelname)s - "
-            "%(filename)s:%(lineno)d - %(message)s"
-        )
-    
-    formatter = logging.Formatter(format_string)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, level.upper()))
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # File handler (if specified)
-    if log_file:
-        # Create log directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-        
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(getattr(logging, level.upper()))
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    
-    return logger
+from config import get_settings
+from models import AudioProcessingResponse, LanguageCode, ProcessingStatus
+from utils.logger import get_logger
 
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get or create a logger with standard configuration
-    
-    Args:
-        name: Logger name (typically __name__)
-        
-    Returns:
-        Logger instance
-    """
-    
-    # Try to get settings, fallback to defaults if not available
-    try:
-        from config import get_settings
-        settings = get_settings()
-        log_level = settings.log_level
-        log_file = settings.log_file if hasattr(settings, 'log_file') else None
-    except (ImportError, AttributeError):
-        log_level = "INFO"
-        log_file = None
-    
-    return setup_logger(name, log_level, log_file)
+# Set seed for consistent language detection
+DetectorFactory.seed = 0
 
-# Create a default logger for the application
-app_logger = get_logger("farmer_ai_pipeline")
+settings = get_settings()
+logger = get_logger(__name__)
 
-class LoggerMixin:
-    """Mixin class to add logging capabilities to any class"""
+
+class AudioIngestionAgent:
+    """Agent for processing audio files and extracting text with language detection"""
     
-    @property
-    def logger(self) -> logging.Logger:
-        """Get logger for this class"""
-        return get_logger(self.__class__.__module__ + "." + self.__class__.__name__)
-
-def log_execution_time(func):
-    """Decorator to log function execution time"""
-    def wrapper(*args, **kwargs):
-        logger = get_logger(func.__module__)
-        start_time = datetime.now()
-        
+    def __init__(self):
+        self.whisper_model = None
+        self.supported_formats = settings.supported_audio_formats
+        self.max_duration = 300  # 5 minutes max
+        self.sample_rate = 16000
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Audio agent will use device: {self.device}")
+    
+    async def initialize(self):
+        """Initialize the Whisper model and other components"""
         try:
-            result = func(*args, **kwargs)
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.info(f"{func.__name__} executed in {execution_time:.3f}s")
-            return result
+            logger.info(f"Loading Whisper model: {settings.whisper_model}")
+            
+            # Load Whisper model in a thread to avoid blocking
+            loop = asyncio.get_event_loop()
+            self.whisper_model = await loop.run_in_executor(
+                None, 
+                whisper.load_model, 
+                settings.whisper_model,
+                self.device
+            )
+            
+            logger.info("Whisper model loaded successfully")
+            
+            # Test the model with a short audio
+            await self._test_model()
+            
         except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"{func.__name__} failed after {execution_time:.3f}s: {str(e)}")
+            logger.error(f"Failed to initialize audio agent: {str(e)}")
             raise
     
-    return wrapper
-
-async def log_async_execution_time(func):
-    """Decorator to log async function execution time"""
-    async def wrapper(*args, **kwargs):
-        logger = get_logger(func.__module__)
-        start_time = datetime.now()
+    async def _test_model(self):
+        """Test the Whisper model with a short synthetic audio"""
+        try:
+            # Create a short test audio (1 second of silence)
+            test_audio = np.zeros(self.sample_rate, dtype=np.float32)
+            
+            # Run a quick test transcription
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.whisper_model.transcribe(test_audio, language="en")
+            )
+            
+            logger.info("Audio model test completed successfully")
+        except Exception as e:
+            logger.warning(f"Audio model test failed: {str(e)}")
+    
+    async def process_audio(
+        self, 
+        audio_file: BinaryIO, 
+        language_hint: Optional[LanguageCode] = None
+    ) -> AudioProcessingResponse:
+        """
+        Process audio file and return transcription with language detection
+        
+        Args:
+            audio_file: Audio file to process
+            language_hint: Optional language hint for better processing
+            
+        Returns:
+            AudioProcessingResponse with transcription and metadata
+        """
+        start_time = time.time()
+        task_id = f"audio_{int(time.time() * 1000)}"
         
         try:
-            result = await func(*args, **kwargs)
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.info(f"{func.__name__} executed in {execution_time:.3f}s")
-            return result
+            logger.info(f"Starting audio processing for task {task_id}")
+            
+            # Step 1: Validate and preprocess audio
+            processed_audio = await self._preprocess_audio(audio_file)
+            
+            # Step 2: Transcribe using Whisper
+            transcription_result = await self._transcribe_audio(
+                processed_audio, 
+                language_hint
+            )
+            
+            # Step 3: Detect language from transcribed text
+            detected_language = await self._detect_language(
+                transcription_result["text"]
+            )
+            
+            # Step 4: Calculate confidence score
+            confidence_score = self._calculate_confidence(transcription_result)
+            
+            processing_time = time.time() - start_time
+            
+            logger.info(f"Audio processing completed for task {task_id} in {processing_time:.2f}s")
+            
+            return AudioProcessingResponse(
+                task_id=task_id,
+                status=ProcessingStatus.COMPLETED,
+                transcribed_text=transcription_result["text"],
+                detected_language=detected_language,
+                confidence_score=confidence_score,
+                processing_time=processing_time
+            )
+            
         except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"{func.__name__} failed after {execution_time:.3f}s: {str(e)}")
-            raise
+            logger.error(f"Audio processing failed for task {task_id}: {str(e)}")
+            return AudioProcessingResponse(
+                task_id=task_id,
+                status=ProcessingStatus.FAILED,
+                error_message=str(e),
+                processing_time=time.time() - start_time
+            )
     
-    return wrapper
+    async def _preprocess_audio(self, audio_file: BinaryIO) -> np.ndarray:
+        """
+        Preprocess audio file: convert format, resample, normalize
+        
+        Args:
+            audio_file: Input audio file
+            
+        Returns:
+            Preprocessed audio as numpy array
+        """
+        try:
+            # Save uploaded file to temporary location
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+                temp_file.write(audio_file.read())
+                temp_path = temp_file.name
+            
+            try:
+                # Load and convert audio using pydub
+                audio = AudioSegment.from_file(temp_path)
+                
+                # Check duration
+                duration_seconds = len(audio) / 1000
+                if duration_seconds > self.max_duration:
+                    logger.warning(f"Audio duration {duration_seconds}s exceeds maximum {self.max_duration}s")
+                    # Truncate to max duration
+                    audio = audio[:self.max_duration * 1000]
+                
+                # Convert to mono and resample
+                audio = audio.set_channels(1).set_frame_rate(self.sample_rate)
+                
+                # Convert to numpy array
+                audio_array = np.array(audio.get_array_of_samples(), dtype=np.float32)
+                
+                # Normalize
+                if len(audio_array) > 0:
+                    max_val = np.max(np.abs(audio_array))
+                    if max_val > 0:
+                        audio_array = audio_array / max_val
+                
+                logger.info(f"Audio preprocessed: {len(audio_array)/self.sample_rate:.2f}s duration")
+                
+                return audio_array
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    
+        except Exception as e:
+            logger.error(f"Audio preprocessing failed: {str(e)}")
+            raise ValueError(f"Failed to preprocess audio: {str(e)}")
+    
+    async def _transcribe_audio(
+        self, 
+        audio_array: np.ndarray, 
+        language_hint: Optional[LanguageCode] = None
+    ) -> dict:
+        """
+        Transcribe audio using Whisper model
+        
+        Args:
+            audio_array: Preprocessed audio array
+            language_hint: Optional language hint
+            
+        Returns:
+            Whisper transcription result
+        """
+        try:
+            # Prepare transcription options
+            options = {
+                "task": "transcribe",
+                "fp16": False,  # Use fp32 for better compatibility
+            }
+            
+            # Add language if provided
+            if language_hint:
+                options["language"] = language_hint.value
+            
+            # Run transcription in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.whisper_model.transcribe(audio_array, **options)
+            )
+            
+            logger.info(f"Transcription completed: {len(result['text'])} characters")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Transcription failed: {str(e)}")
+            raise ValueError(f"Failed to transcribe audio: {str(e)}")
+    
+    async def _detect_language(self, text: str) -> Optional[LanguageCode]:
+        """
+        Detect language from transcribed text
+        
+        Args:
+            text: Transcribed text
+            
+        Returns:
+            Detected language code
+        """
+        try:
+            if not text or len(text.strip()) < 10:
+                return None
+            
+            # Use langdetect for language detection
+            detected_lang = detect(text)
+            
+            # Map to our language codes
+            lang_mapping = {
+                'hi': LanguageCode.HINDI,
+                'en': LanguageCode.ENGLISH,
+                'gu': LanguageCode.GUJARATI,
+                'pa': LanguageCode.PUNJABI,
+                'bn': LanguageCode.BENGALI,
+                'te': LanguageCode.TELUGU,
+                'ta': LanguageCode.TAMIL,
+                'ml': LanguageCode.MALAYALAM,
+                'kn': LanguageCode.KANNADA,
+                'or': LanguageCode.ODIA
+            }
+            
+            detected_language = lang_mapping.get(detected_lang, LanguageCode.HINDI)
+            
+            logger.info(f"Language detected: {detected_language.value}")
+            
+            return detected_language
+            
+        except Exception as e:
+            logger.warning(f"Language detection failed: {str(e)}")
+            return LanguageCode.HINDI  # Default to Hindi
+    
+    def _calculate_confidence(self, transcription_result: dict) -> float:
+        """
+        Calculate confidence score from Whisper result
+        
+        Args:
+            transcription_result: Whisper transcription result
+            
+        Returns:
+            Confidence score between 0 and 1
+        """
+        try:
+            # Whisper doesn't provide direct confidence scores
+            # We'll estimate based on available information
+            
+            text = transcription_result.get("text", "")
+            segments = transcription_result.get("segments", [])
+            
+            if not segments:
+                # Fallback based on text length and quality
+                if len(text.strip()) == 0:
+                    return 0.1
+                # Simple heuristic based on text length
+                return max(0.1, min(0.9, len(text) / 100))
+            
+            # Calculate average probability from segments
+            total_prob = 0
+            total_segments = 0
+            
+            for segment in segments:
+                if "avg_logprob" in segment:
+                    # Convert log probability to probability
+                    prob = np.exp(segment["avg_logprob"])
+                    total_prob += prob
+                    total_segments += 1
+            
+            if total_segments > 0:
+                avg_confidence = total_prob / total_segments
+                return max(0.1, min(0.9, avg_confidence))
+            
+            # Default confidence
+            return 0.7
+            
+        except Exception as e:
+            logger.warning(f"Confidence calculation failed: {str(e)}")
+            return 0.5  # Default confidence
+    
+    async def is_ready(self) -> bool:
+        """Check if the agent is ready to process audio"""
+        return self.whisper_model is not None
+    
+    async def cleanup(self):
+        """Cleanup resources"""
+        try:
+            if self.whisper_model:
+                # Clear GPU memory if using CUDA
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+                self.whisper_model = None
+            
+            logger.info("Audio agent cleaned up successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during audio agent cleanup: {str(e)}")
+    
+    async def get_supported_formats(self) -> list:
+        """Get list of supported audio formats"""
+        return self.supported_formats
+    
+    async def estimate_processing_time(self, duration_seconds: float) -> float:
+        """
+        Estimate processing time for given audio duration
+        
+        Args:
+            duration_seconds: Audio duration in seconds
+            
+        Returns:
+            Estimated processing time in seconds
+        """
+        # Rough estimate: Whisper processes at 10-20x real-time
+        # depending on model size and hardware
+        model_factors = {
+            "tiny": 0.02,
+            "base": 0.05,
+            "small": 0.1,
+            "medium": 0.2,
+            "large": 0.4
+        }
+        
+        factor = model_factors.get(settings.whisper_model, 0.1)
+        
+        if self.device == "cuda":
+            factor *= 0.3  # GPU acceleration
+        
+        return duration_seconds * factor
+    
+    async def get_health_status(self) -> dict:
+        """Get health status of the audio agent"""
+        return {
+            "model_loaded": self.whisper_model is not None,
+            "device": self.device,
+            "model_name": settings.whisper_model,
+            "supported_formats": self.supported_formats,
+            "max_duration": self.max_duration
+        }

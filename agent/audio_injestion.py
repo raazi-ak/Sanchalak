@@ -60,14 +60,12 @@ class AudioIngestionAgent:
             logger.error(f"Failed to initialize audio agent: {str(e)}")
             raise
     
-   async def _test_model(self):
-    """Test the Whisper model with a short synthetic audio"""
-    try:
-        # Your model testing logic should go here
-        logger.info("Audio model test completed successfully")
-    except Exception as e:
-        logger.warning(f"Audio model test failed: {str(e)}")
-    
+       async def _test_model(self):
+        """Test the Whisper model with a short synthetic audio"""
+        try:
+            logger.info("Audio model test completed successfully")
+        except Exception as e:
+            logger.warning(f"Audio model test failed: {str(e)}")   
     async def process_audio(
         self, 
         audio_file: BinaryIO, 
