@@ -15,9 +15,9 @@ from pydub import AudioSegment
 from langdetect import detect, DetectorFactory
 import torch
 
-from app.config import get_settings
-from app.models import AudioProcessingResponse, LanguageCode, ProcessingStatus
-from app.utils.logger import get_logger
+from config import get_settings
+from models import AudioProcessingResponse, LanguageCode, ProcessingStatus
+from utils.logger import get_logger
 
 # Set seed for consistent language detection
 DetectorFactory.seed = 0
@@ -360,3 +360,4 @@ class AudioIngestionAgent:
             "supported_formats": self.supported_formats,
             "max_duration": self.max_duration
         }
+        

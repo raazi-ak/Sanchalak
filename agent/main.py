@@ -7,10 +7,10 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Dict, Any
-from app.agents.info_extraction import EnhancedInfoExtractionAgent
-from app.agents.eligibility_checker import EligibilityCheckerAgent
-from app.agents.vector_db import VectorDBAgent
-from app.agents.web_scraper import WebScraperAgent
+from info_extraction import EnhancedInfoExtractionAgent
+from eligibility_checker import EligibilityCheckerAgent
+from vector_db import VectorDBAgent
+from web_scraper import WebScraperAgent
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,16 +19,14 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 import uvicorn
 
-from app.config import get_settings
-from app.models import *
-from app.utils.logger import get_logger
-from app.utils.error_handlers import setup_error_handlers
-from app.routers import audio, schemes
-from app.agents.audio_ingestion import AudioIngestionAgent
-from app.agents.info_extraction import InfoExtractionAgent
-from app.agents.eligibility_checker import EligibilityCheckerAgent
-from app.agents.vector_db import VectorDBAgent
-from app.agents.web_scraper import WebScraperAgent
+from config import get_settings
+from models import *
+from utils_logger import get_logger, configure_uvicorn_logger
+from errorhandler import setup_error_handlers
+from router_audio import router as audio_router
+from router_schemes import router as schemes_router
+from OllamaAgent import OllamaAgent
+from audio_ingestion import AudioIngestionAgent
 
 # Initialize settings and logger
 settings = get_settings()
