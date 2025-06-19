@@ -12,10 +12,10 @@ from spacy.matcher import Matcher, PhraseMatcher
 import json
 import os
 # Add these imports
-from app.agents.eligibility_checker import EligibilityCheckerAgent
-from app.agents.vector_db import VectorDBAgent
-from app.agents.web_scraper import WebScraperAgent
-from app.agents.ollama import OllamaAgent
+from eligibility_checker import EligibilityCheckerAgent
+from vector_db import VectorDBAgent
+from web_scraper import WebScraperAgent
+from ollama import OllamaAgent
 # Ollama integration imports
 try:
     import ollama
