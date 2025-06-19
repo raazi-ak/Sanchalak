@@ -22,14 +22,9 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False
     
-    # Security
-    secret_key: str = "your-secret-key-change-in-production"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    
     # Database
-    database_url: str = "postgresql+asyncpg://user:password@localhost/farmer_ai"
-    redis_url: str = "redis://localhost:6379"
+    database_url: str = ""
+    redis_url: str = ""
     
     # Audio Processing
     whisper_model: str = "base"  # tiny, base, small, medium, large
