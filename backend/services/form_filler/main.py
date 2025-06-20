@@ -29,7 +29,6 @@ async def fill_form(farmer: Farmer):
         "scheme": scheme_name
     }
 
-    # 🟡 Save as JSON file
     file_name = f"{farmer.name.replace(' ', '_')}_{scheme_name.replace(' ', '_')}.json"
     file_path = os.path.join(FORMS_DIR, file_name)
     with open(file_path, "w") as f:
