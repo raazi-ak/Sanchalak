@@ -38,3 +38,26 @@ def send_to_efr_db(farmer_data):
         print("✅ Sent to EFR_DB:", response.status_code, response.json())
     except Exception as e:
         print("❌ Error sending to EFR_DB:", str(e))
+
+def send_to_form_filler(farmer_data):
+    url = "http://form_filler:8002/fill_form"
+    try:
+        response = requests.post(url, json=farmer_data)
+        return response.json()  # 👈 RETURN the response!
+    except Exception as e:
+        print("❌ Error sending to form_filler:", str(e))
+        return {"scheme_name": None}
+
+def update_status(farmer_id, scheme_name):
+    url = "http://status_tracker:8003/update_status"
+    payload = {
+        "farmer_id": farmer_id,
+        "scheme_name": scheme_name,
+        "status": "submitted"
+    }
+    try:
+        response = requests.post(url, json=payload)
+        print("📬 Status Tracker Response:", response.status_code, response.json())
+    except Exception as e:
+        print("❌ Error sending to status_tracker:", str(e))
+

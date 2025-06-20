@@ -34,6 +34,19 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+  
+  form_filler:
+    build: ./services/form_filler
+    ports:
+      - "8002:8002"
+    volumes:
+    - ./services/form_filler/forms:/app/forms
+
+  status_tracker:
+    build: ./services/status_tracker
+    ports:
+      - "8003:8003"
+
 
 volumes:
   mongo_data:

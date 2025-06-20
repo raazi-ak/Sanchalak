@@ -1,0 +1,11 @@
+{
+  "applicant_name": "Ramesh",
+  "contact": "9876543210",
+  "location": "Tamil Nadu",
+  "land_size": 2.5,
+  "crops": [
+    "rice",
+    "groundnut"
+  ],
+  "scheme": "PM-KISAN"
+}
