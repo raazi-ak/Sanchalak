@@ -14,7 +14,7 @@ from models import (
     LanguageCode,
     ProcessingStatus
 )
-from errorhandler import (
+from utils.error_handeller import (
     raise_audio_processing_error,
     raise_transcription_error,
     AudioProcessingError,

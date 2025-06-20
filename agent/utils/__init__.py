@@ -2,6 +2,6 @@
 Utilities package for Farmer AI Pipeline
 """
 
-from .logger import get_logger, setup_logger, LoggerMixin
+from utils.logger import get_logger, configure_uvicorn_logger, log_async_execution_time
 
-__all__ = ['get_logger', 'setup_logger', 'LoggerMixin']
+__all__ = ['get_logger', 'configure_uvicorn_logger', 'log_async_execution_time']

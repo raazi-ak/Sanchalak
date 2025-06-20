@@ -15,7 +15,8 @@ import os
 from eligibility_checker import EligibilityCheckerAgent
 from vector_db import VectorDBAgent
 from web_scraper import WebScraperAgent
-from ollama import OllamaAgent
+from OllamaAgent import OllamaAgent
+
 # Ollama integration imports
 try:
     import ollama
@@ -24,9 +25,9 @@ try:
 except ImportError:
     OLLAMA_AVAILABLE = False
 
-from app.config import get_settings
-from app.models import ExtractedInfo, FarmerInfo, LanguageCode
-from app.utils.logger import get_logger
+from config import get_settings
+from models import ExtractedInfo, FarmerInfo, LanguageCode
+from utils.logger import get_logger
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -117,7 +118,7 @@ class EnhancedInfoExtractionAgent:
                 self.nlp_models['en'] = spacy.blank("en")
             
             # Load models for Indian languages
-            for lang in ['hi', 'gu', 'pa', 'bn', 'te', 'ta', 'ml', 'kn', 'or']:
+            for lang in ['hi', 'gu', 'bn', 'te', 'ta', 'ml', 'kn']:
                 self.nlp_models[lang] = spacy.blank(lang)
                 logger.info(f"Loaded blank model for {lang}")
             

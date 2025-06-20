@@ -1,95 +1,162 @@
+# utils/logger.py
 """
-Logger utility for Farmer AI Pipeline
-
-Provides structured logging with proper formatting and levels
+Logging utility for the Farmer AI Pipeline
+Provides structured logging with configuration support
 """
 
 import logging
-import sys
+import logging.handlers
 import os
-from datetime import datetime
-from typing import Optional
+import sys
+import functools
+import time
+from typing import Any, Dict, Optional
+from pathlib import Path
 
-def setup_logger(
-    name: str,
-    level: str = "INFO",
-    log_file: Optional[str] = None,
-    format_string: Optional[str] = None
-) -> logging.Logger:
-    """
-    Setup logger with proper formatting and handlers
+from config import get_settings
+
+settings = get_settings()
+
+class LogFormatter(logging.Formatter):
+    """Custom formatter for structured logging"""
     
-    Args:
-        name: Logger name
-        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Optional log file path
-        format_string: Optional custom format string
+    def __init__(self):
+        super().__init__()
         
-    Returns:
-        Configured logger instance
-    """
-    
-    # Create logger
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Clear existing handlers
-    logger.handlers.clear()
-    
-    # Create formatter
-    if not format_string:
-        format_string = (
-            "%(asctime)s - %(name)s - %(levelname)s - "
-            "%(filename)s:%(lineno)d - %(message)s"
+    def format(self, record: logging.LogRecord) -> str:
+        # Base format
+        log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+        
+        # Add extra fields if present
+        if hasattr(record, 'request_id'):
+            log_format = f"[%(asctime)s] [%(levelname)s] [%(name)s] [req:%(request_id)s] %(message)s"
+        
+        if hasattr(record, 'execution_time'):
+            log_format += f" [exec_time:%(execution_time).3fs]"
+        
+        formatter = logging.Formatter(
+            log_format,
+            datefmt="%Y-%m-%d %H:%M:%S"
         )
-    
-    formatter = logging.Formatter(format_string)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, level.upper()))
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # File handler (if specified)
-    if log_file:
-        # Create log directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
         
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(getattr(logging, level.upper()))
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    
-    return logger
+        return formatter.format(record)
 
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get or create a logger with standard configuration
+class FarmerAILogger:
+    """Enhanced logger for the Farmer AI Pipeline"""
     
-    Args:
-        name: Logger name (typically __name__)
+    _loggers: Dict[str, logging.Logger] = {}
+    _initialized = False
+    
+    @classmethod
+    def _initialize_logging(cls):
+        """Initialize the logging configuration once"""
+        if cls._initialized:
+            return
+            
+        # Ensure log directory exists
+        os.makedirs(os.path.dirname(settings.log_file), exist_ok=True)
         
-    Returns:
-        Logger instance
-    """
-    
-    # Try to get settings, fallback to defaults if not available
-    try:
-        from config import get_settings
-        settings = get_settings()
-        log_level = settings.log_level
-        log_file = settings.log_file if hasattr(settings, 'log_file') else None
-    except (ImportError, AttributeError):
-        log_level = "INFO"
-        log_file = None
-    
-    return setup_logger(name, log_level, log_file)
+        # Create root logger
+        root_logger = logging.getLogger("farmer_ai")
+        root_logger.setLevel(getattr(logging, settings.log_level.upper()))
+        
+        # Remove existing handlers
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+        
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(getattr(logging, settings.log_level.upper()))
+        console_handler.setFormatter(LogFormatter())
+        root_logger.addHandler(console_handler)
+        
+        # File handler with rotation
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=settings.log_file,
+            when='midnight',
+            interval=1,
+            backupCount=30,
+            encoding='utf-8'
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(LogFormatter())
+        root_logger.addHandler(file_handler)
+        
+        cls._initialized = True
 
-# Create a default logger for the application
-app_logger = get_logger("farmer_ai_pipeline")
+    @classmethod
+    def get_logger(cls, name: str) -> logging.Logger:
+        """Get or create a logger with the given name"""
+        cls._initialize_logging()
+        
+        if name not in cls._loggers:
+            logger = logging.getLogger(f"farmer_ai.{name}")
+            cls._loggers[name] = logger
+        
+        return cls._loggers[name]
+
+def get_logger(name: str = None) -> logging.Logger:
+    """Get a logger instance for the given module"""
+    if name is None:
+        # Get the caller's module name
+        frame = sys._getframe(1)
+        name = frame.f_globals.get('__name__', 'unknown')
+    
+    # Extract just the module name without the full path
+    if '.' in name:
+        name = name.split('.')[-1]
+    
+    return FarmerAILogger.get_logger(name)
+
+def log_execution_time(func):
+    """Decorator to log function execution time"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        logger = get_logger(func.__module__)
+        
+        try:
+            result = func(*args, **kwargs)
+            execution_time = time.time() - start_time
+            logger.info(
+                f"Function {func.__name__} executed successfully",
+                extra={'execution_time': execution_time}
+            )
+            return result
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(
+                f"Function {func.__name__} failed: {str(e)}",
+                extra={'execution_time': execution_time}
+            )
+            raise
+    
+    return wrapper
+
+def log_async_execution_time(func):
+    """Decorator to log async function execution time"""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        start_time = time.time()
+        logger = get_logger(func.__module__)
+        
+        try:
+            result = await func(*args, **kwargs)
+            execution_time = time.time() - start_time
+            logger.info(
+                f"Async function {func.__name__} executed successfully",
+                extra={'execution_time': execution_time}
+            )
+            return result
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(
+                f"Async function {func.__name__} failed: {str(e)}",
+                extra={'execution_time': execution_time}
+            )
+            raise
+    
+    return wrapper
 
 class LoggerMixin:
     """Mixin class to add logging capabilities to any class"""
@@ -97,40 +164,26 @@ class LoggerMixin:
     @property
     def logger(self) -> logging.Logger:
         """Get logger for this class"""
-        return get_logger(self.__class__.__module__ + "." + self.__class__.__name__)
+        return get_logger(self.__class__.__name__)
 
-def log_execution_time(func):
-    """Decorator to log function execution time"""
-    def wrapper(*args, **kwargs):
-        logger = get_logger(func.__module__)
-        start_time = datetime.now()
-        
-        try:
-            result = func(*args, **kwargs)
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.info(f"{func.__name__} executed in {execution_time:.3f}s")
-            return result
-        except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"{func.__name__} failed after {execution_time:.3f}s: {str(e)}")
-            raise
+# Configure uvicorn logger to use our formatter
+def configure_uvicorn_logger():
+    """Configure uvicorn logger to match our format"""
+    uvicorn_logger = logging.getLogger("uvicorn")
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
     
-    return wrapper
+    # Set formatters
+    for handler in uvicorn_logger.handlers:
+        handler.setFormatter(LogFormatter())
+    
+    for handler in uvicorn_access_logger.handlers:
+        handler.setFormatter(LogFormatter())
 
-async def log_async_execution_time(func):
-    """Decorator to log async function execution time"""
-    async def wrapper(*args, **kwargs):
-        logger = get_logger(func.__module__)
-        start_time = datetime.now()
-        
-        try:
-            result = await func(*args, **kwargs)
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.info(f"{func.__name__} executed in {execution_time:.3f}s")
-            return result
-        except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"{func.__name__} failed after {execution_time:.3f}s: {str(e)}")
-            raise
-    
-    return wrapper
+# Export commonly used functions
+__all__ = [
+    'get_logger',
+    'log_execution_time', 
+    'log_async_execution_time',
+    'LoggerMixin',
+    'configure_uvicorn_logger'
+]

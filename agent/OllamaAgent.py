@@ -17,7 +17,7 @@ except ImportError:
     OLLAMA_AVAILABLE = False
 
 from config import get_settings
-from utils.error_handler import raise_ollama_error, OllamaError
+from utils.error_handeller import raise_ollama_error, OllamaError
 from utils.logger import get_logger, log_async_execution_time
 
 settings = get_settings()

@@ -1,0 +1,115 @@
+[2025-06-20 13:03:59] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:03:59] [INFO] [farmer_ai.__main__] Starting Farmer AI Pipeline server
+[2025-06-20 13:04:10] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:04:10] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:04:10] [INFO] [farmer_ai.main] Starting Farmer AI Pipeline...
+[2025-06-20 13:04:10] [INFO] [farmer_ai.main] Initializing AI agents...
+[2025-06-20 13:04:10] [INFO] [farmer_ai.audio_ingestion] Audio agent will use device: cpu
+[2025-06-20 13:04:10] [INFO] [farmer_ai.audio_ingestion] Loading Whisper model: base
+[2025-06-20 13:05:06] [INFO] [farmer_ai.audio_ingestion] Whisper model loaded successfully
+[2025-06-20 13:05:06] [INFO] [farmer_ai.audio_ingestion] Audio model test completed successfully
+[2025-06-20 13:05:06] [INFO] [farmer_ai.main] Audio agent initialized
+[2025-06-20 13:05:06] [INFO] [farmer_ai.info_extraction] Initializing Enhanced NLU models and patterns...
+[2025-06-20 13:05:06] [WARNING] [farmer_ai.info_extraction] English spaCy model not found, using blank model
+[2025-06-20 13:05:06] [INFO] [farmer_ai.info_extraction] Loaded blank model for hi
+[2025-06-20 13:05:06] [INFO] [farmer_ai.info_extraction] Loaded blank model for gu
+[2025-06-20 13:05:06] [ERROR] [farmer_ai.info_extraction] Failed to load NLP models: [E048] Can't import language pa or any matching language from spacy.lang: No module named 'spacy.lang.pa'
+[2025-06-20 13:05:06] [ERROR] [farmer_ai.info_extraction] Failed to initialize Enhanced NLU agent: [E048] Can't import language pa or any matching language from spacy.lang: No module named 'spacy.lang.pa'
+[2025-06-20 13:05:06] [ERROR] [farmer_ai.main] Failed to initialize application: [E048] Can't import language pa or any matching language from spacy.lang: No module named 'spacy.lang.pa'
+[2025-06-20 13:05:06] [INFO] [farmer_ai.main] Shutting down Farmer AI Pipeline...
+[2025-06-20 13:05:06] [INFO] [farmer_ai.audio_ingestion] Audio agent cleaned up successfully
+[2025-06-20 13:05:06] [INFO] [farmer_ai.main] Cleaned up audio agent
+[2025-06-20 13:05:06] [INFO] [farmer_ai.info_extraction] Enhanced NLU agent cleaned up successfully
+[2025-06-20 13:05:06] [INFO] [farmer_ai.main] Cleaned up nlp agent
+[2025-06-20 13:07:09] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:07:09] [INFO] [farmer_ai.__main__] Starting Farmer AI Pipeline server
+[2025-06-20 13:07:19] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:07:19] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:07:19] [INFO] [farmer_ai.main] Starting Farmer AI Pipeline...
+[2025-06-20 13:07:19] [INFO] [farmer_ai.main] Initializing AI agents...
+[2025-06-20 13:07:19] [INFO] [farmer_ai.audio_ingestion] Audio agent will use device: cpu
+[2025-06-20 13:07:19] [INFO] [farmer_ai.audio_ingestion] Loading Whisper model: base
+[2025-06-20 13:07:20] [INFO] [farmer_ai.audio_ingestion] Whisper model loaded successfully
+[2025-06-20 13:07:20] [INFO] [farmer_ai.audio_ingestion] Audio model test completed successfully
+[2025-06-20 13:07:20] [INFO] [farmer_ai.main] Audio agent initialized
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Initializing Enhanced NLU models and patterns...
+[2025-06-20 13:07:20] [WARNING] [farmer_ai.info_extraction] English spaCy model not found, using blank model
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Loaded blank model for hi
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Loaded blank model for gu
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Loaded blank model for bn
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Loaded blank model for te
+[2025-06-20 13:07:20] [INFO] [farmer_ai.info_extraction] Loaded blank model for ta
+[2025-06-20 13:07:21] [INFO] [farmer_ai.info_extraction] Loaded blank model for ml
+[2025-06-20 13:07:21] [INFO] [farmer_ai.info_extraction] Loaded blank model for kn
+[2025-06-20 13:07:21] [ERROR] [farmer_ai.info_extraction] Failed to load NLP models: [E048] Can't import language or or any matching language from spacy.lang: No module named 'spacy.lang.or'
+[2025-06-20 13:07:21] [ERROR] [farmer_ai.info_extraction] Failed to initialize Enhanced NLU agent: [E048] Can't import language or or any matching language from spacy.lang: No module named 'spacy.lang.or'
+[2025-06-20 13:07:21] [ERROR] [farmer_ai.main] Failed to initialize application: [E048] Can't import language or or any matching language from spacy.lang: No module named 'spacy.lang.or'
+[2025-06-20 13:07:21] [INFO] [farmer_ai.main] Shutting down Farmer AI Pipeline...
+[2025-06-20 13:07:21] [INFO] [farmer_ai.audio_ingestion] Audio agent cleaned up successfully
+[2025-06-20 13:07:21] [INFO] [farmer_ai.main] Cleaned up audio agent
+[2025-06-20 13:07:21] [INFO] [farmer_ai.info_extraction] Enhanced NLU agent cleaned up successfully
+[2025-06-20 13:07:21] [INFO] [farmer_ai.main] Cleaned up nlp agent
+[2025-06-20 13:07:39] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:07:40] [INFO] [farmer_ai.error_handler] Error handlers registered successfully
+[2025-06-20 13:07:40] [INFO] [farmer_ai.main] Starting Farmer AI Pipeline...
+[2025-06-20 13:07:40] [INFO] [farmer_ai.main] Initializing AI agents...
+[2025-06-20 13:07:40] [INFO] [farmer_ai.audio_ingestion] Audio agent will use device: cpu
+[2025-06-20 13:07:40] [INFO] [farmer_ai.audio_ingestion] Loading Whisper model: base
+[2025-06-20 13:07:41] [INFO] [farmer_ai.audio_ingestion] Whisper model loaded successfully
+[2025-06-20 13:07:41] [INFO] [farmer_ai.audio_ingestion] Audio model test completed successfully
+[2025-06-20 13:07:41] [INFO] [farmer_ai.main] Audio agent initialized
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Initializing Enhanced NLU models and patterns...
+[2025-06-20 13:07:41] [WARNING] [farmer_ai.info_extraction] English spaCy model not found, using blank model
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for hi
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for gu
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for bn
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for te
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for ta
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for ml
+[2025-06-20 13:07:41] [INFO] [farmer_ai.info_extraction] Loaded blank model for kn
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Available Ollama models: ['llama3.2:1b']
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Using Ollama model: llama3.2
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for en
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for hi
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for gu
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for bn
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for te
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for ta
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for ml
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Added patterns to matcher for kn
+[2025-06-20 13:07:44] [INFO] [farmer_ai.info_extraction] Enhanced NLU agent initialized successfully
+[2025-06-20 13:07:44] [INFO] [farmer_ai.main] NLP agent initialized
+[2025-06-20 13:07:44] [INFO] [farmer_ai.eligibility_checker] Initializing Eligibility Checker Agent...
+[2025-06-20 13:07:44] [INFO] [farmer_ai.eligibility_checker] Loaded 5 default schemes
+[2025-06-20 13:07:44] [INFO] [farmer_ai.eligibility_checker] Eligibility Checker Agent initialized successfully
+[2025-06-20 13:07:44] [INFO] [farmer_ai.main] Eligibility agent initialized
+[2025-06-20 13:07:44] [INFO] [farmer_ai.vector_db] Initializing Vector Database Agent...
+[2025-06-20 13:07:44] [INFO] [farmer_ai.vector_db] ChromaDB client initialized with path: ./app/data\chroma_db
+[2025-06-20 13:08:59] [INFO] [farmer_ai.vector_db] Embedding model loaded: sentence-transformers/all-MiniLM-L6-v2 (dim: 384)
+[2025-06-20 13:08:59] [INFO] [farmer_ai.vector_db] Created new collection: farmer_schemes
+[2025-06-20 13:08:59] [ERROR] [farmer_ai.vector_db] Failed to add document: Vector DB Agent not initialized
+[2025-06-20 13:08:59] [ERROR] [farmer_ai.vector_db] Failed to add default schemes: Vector DB Agent not initialized
+[2025-06-20 13:08:59] [INFO] [farmer_ai.vector_db] Vector Database Agent initialized successfully
+[2025-06-20 13:08:59] [INFO] [farmer_ai.main] Vector DB agent initialized
+[2025-06-20 13:08:59] [INFO] [farmer_ai.web_scraper] Initializing Web Scraper Agent...
+[2025-06-20 13:08:59] [INFO] [farmer_ai.web_scraper] HTTP session initialized
+[2025-06-20 13:08:59] [INFO] [farmer_ai.web_scraper] Scraping patterns loaded
+[2025-06-20 13:08:59] [INFO] [farmer_ai.web_scraper] Web Scraper Agent initialized successfully
+[2025-06-20 13:08:59] [INFO] [farmer_ai.main] Web scraper agent initialized
+[2025-06-20 13:08:59] [INFO] [farmer_ai.OllamaAgent] Initializing Ollama agent with host: http://localhost:11434
+[2025-06-20 13:08:59] [ERROR] [farmer_ai.OllamaAgent] Cannot connect to Ollama server: unsupported operand type(s) for +: 'float' and 'ClientTimeout'
+[2025-06-20 13:08:59] [ERROR] [farmer_ai.OllamaAgent] Failed to initialize Ollama agent: Ollama server unreachable: unsupported operand type(s) for +: 'float' and 'ClientTimeout'
+[2025-06-20 13:08:59] [WARNING] [farmer_ai.main] Ollama agent initialization failed: Failed to initialize Ollama: Ollama server unreachable: unsupported operand type(s) for +: 'float' and 'ClientTimeout'
+[2025-06-20 13:08:59] [INFO] [farmer_ai.main] All agents initialized successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Shutting down Farmer AI Pipeline...
+[2025-06-20 13:15:06] [INFO] [farmer_ai.audio_ingestion] Audio agent cleaned up successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up audio agent
+[2025-06-20 13:15:06] [INFO] [farmer_ai.info_extraction] Enhanced NLU agent cleaned up successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up nlp agent
+[2025-06-20 13:15:06] [INFO] [farmer_ai.eligibility_checker] Eligibility Checker Agent cleaned up successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up eligibility agent
+[2025-06-20 13:15:06] [INFO] [farmer_ai.vector_db] Vector DB Agent cleaned up successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up vector_db agent
+[2025-06-20 13:15:06] [INFO] [farmer_ai.web_scraper] Web Scraper Agent cleaned up successfully
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up scraper agent
+[2025-06-20 13:15:06] [INFO] [farmer_ai.main] Cleaned up ollama agent
