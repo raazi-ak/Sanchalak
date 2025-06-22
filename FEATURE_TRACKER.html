@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanchalak - Feature Progress Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); 
+            color: white; 
+            padding: 30px; 
+            text-align: center; 
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .progress-overview { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 20px; 
+            padding: 30px; 
+            background: #f8f9fa;
+        }
+        .progress-card { 
+            background: white; 
+            border-radius: 10px; 
+            padding: 20px; 
+            text-align: center; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .progress-card h3 { color: #333; margin-bottom: 15px; }
+        .progress-bar { 
+            background: #e0e0e0; 
+            border-radius: 10px; 
+            height: 10px; 
+            overflow: hidden; 
+            margin: 10px 0;
+        }
+        .progress-fill { 
+            height: 100%; 
+            border-radius: 10px; 
+            transition: width 0.3s ease;
+        }
+        .features { padding: 30px; }
+        .feature-section { 
+            margin-bottom: 40px; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 10px; 
+            overflow: hidden;
+        }
+        .feature-header { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .feature-header:hover { background: #e9ecef; }
+        .feature-content { padding: 20px; }
+        .feature-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 10px 0; 
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .feature-item:last-child { border-bottom: none; }
+        .checkbox { 
+            width: 20px; 
+            height: 20px; 
+            margin-right: 15px; 
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        .done { background: #4CAF50; }
+        .progress { background: #FF9800; }
+        .todo { background: #f44336; }
+        .feature-text { flex: 1; }
+        .status-badge { 
+            padding: 5px 10px; 
+            border-radius: 15px; 
+            font-size: 0.8em; 
+            font-weight: bold;
+        }
+        .status-done { background: #d4edda; color: #155724; }
+        .status-progress { background: #fff3cd; color: #856404; }
+        .status-todo { background: #f8d7da; color: #721c24; }
+        .collapse { display: none; }
+        .expand-icon { transition: transform 0.3s ease; }
+        .expand-icon.rotated { transform: rotate(180deg); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌾 Sanchalak</h1>
+            <p>AI-Powered Multilingual Assistant for Farmers - Feature Progress Tracker</p>
+        </div>
+
+        <div class="progress-overview">
+            <div class="progress-card">
+                <h3>🤖 AI Agent Layer</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 85%; background: #4CAF50;"></div>
+                </div>
+                <p><strong>85% Complete</strong></p>
+            </div>
+            <div class="progress-card">
+                <h3>🏗️ Backend Services</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 60%; background: #FF9800;"></div>
+                </div>
+                <p><strong>60% Complete</strong></p>
+            </div>
+            <div class="progress-card">
+                <h3>📱 Telegram Bot</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 10%; background: #f44336;"></div>
+                </div>
+                <p><strong>10% Complete</strong></p>
+            </div>
+            <div class="progress-card">
+                <h3>🔗 Integration</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 15%; background: #f44336;"></div>
+                </div>
+                <p><strong>15% Complete</strong></p>
+            </div>
+        </div>
+
+        <div class="features">
+            <!-- Telegram Bot Interface (PRIORITY) -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('telegram')">
+                    <h2>📱 Telegram Bot Interface (PRIMARY USER INTERACTION)</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content" id="telegram">
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Bot Authentication & Setup</strong></div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>User Onboarding Flow</strong> (Welcome, registration)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Voice Recording Capture & Upload</strong></div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Text Query Processing</strong></div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Orchestrator Integration</strong> (Send audio/queries)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Audio Response Playback</strong> (TTS results)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Multi-language Interface</strong></div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text"><strong>Session Management & FSM</strong></div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clarification Agent -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('clarification')">
+                    <h2>🧠 Clarification Agent (Missing Data Handler)</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content collapse" id="clarification">
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Missing Data Detection</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Dynamic Question Generation</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">FSM State Management (init → missing-info → confirm → done)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Voice/Text Response Handling</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Data Validation & Confirmation</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Telegram Bot Integration</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- eKYC Verification -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('ekyc')">
+                    <h2>🆔 eKYC Verification System</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content collapse" id="ekyc">
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Aadhaar Number Capture</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Document Upload (via Telegram)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">OCR Integration (Document verification)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Government API Integration (if available)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Verification Status Tracking</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Privacy & Security Compliance</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Agent Layer -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('ai-agent')">
+                    <h2>🧠 AI Agent Layer (Advanced Processing)</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content collapse" id="ai-agent">
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Audio Processing with Whisper (transcription)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Enhanced NLP extraction (spaCy + Ollama)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Eligibility Checker (5+ Government Schemes)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Vector Database (ChromaDB integration)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Web Scraper (Real-time scheme data)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">FastAPI server with comprehensive endpoints</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox progress">⚠</div>
+                        <div class="feature-text">Multi-language support (Hindi, English, regional)</div>
+                        <div class="status-badge status-progress">IN PROGRESS</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Response-to-audio conversion (TTS integration)</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Microservices -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('backend')">
+                    <h2>🏗️ Backend Microservices</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content collapse" id="backend">
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Orchestrator Service (API Gateway)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">EFR Database Service (Farmer Records)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Form Filler Service (Auto-fill applications)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">Status Tracker Service (Application monitoring)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox done">✓</div>
+                        <div class="feature-text">MongoDB Database (Farmer data storage)</div>
+                        <div class="status-badge status-done">DONE</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox progress">⚠</div>
+                        <div class="feature-text">Service-to-service communication</div>
+                        <div class="status-badge status-progress">IN PROGRESS</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Enhanced data models for clarification</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Integration -->
+            <div class="feature-section">
+                <div class="feature-header" onclick="toggleSection('integration')">
+                    <h2>🔗 System Integration & Orchestration</h2>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="feature-content collapse" id="integration">
+                    <div class="feature-item">
+                        <div class="checkbox progress">⚠</div>
+                        <div class="feature-text">Telegram Bot ↔ Orchestrator Communication</div>
+                        <div class="status-badge status-progress">IN PROGRESS</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Orchestrator ↔ AI Agent Pipeline</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">AI Results ↔ Audio Response Pipeline</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Error Handling & Fallback Mechanisms</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">End-to-End Testing Framework</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="checkbox todo">✗</div>
+                        <div class="feature-text">Performance Monitoring & Logging</div>
+                        <div class="status-badge status-todo">TODO</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const icon = content.previousElementSibling.querySelector('.expand-icon');
+            
+            if (content.classList.contains('collapse')) {
+                content.classList.remove('collapse');
+                icon.classList.add('rotated');
+            } else {
+                content.classList.add('collapse');
+                icon.classList.remove('rotated');
+            }
+        }
+
+        // Auto-collapse all sections except the first one
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('.feature-content');
+            sections.forEach((section, index) => {
+                if (index > 0) {
+                    section.classList.add('collapse');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

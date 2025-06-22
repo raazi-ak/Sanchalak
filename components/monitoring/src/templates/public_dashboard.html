@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}System Health - Sanchalak{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-heartbeat me-2"></i>System Status</h2>
+            <button class="btn btn-outline-primary refresh-btn" onclick="refreshHealth()">
+                <i class="fas fa-sync-alt me-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <span class="health-indicator status-{{ health.status }}"></span>
+                    Overall System Health
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4 class="status-{{ health.status }}">{{ health.message }}</h4>
+                        <p class="text-muted">Last updated: <span id="last-updated">{{ health.timestamp }}</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="border rounded p-3">
+                                    <h3 class="text-success">{{ health.summary.healthy }}</h3>
+                                    <small class="text-muted">Healthy</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-3">
+                                    <h3 class="text-warning">{{ health.summary.warning }}</h3>
+                                    <small class="text-muted">Warning</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-3">
+                                    <h3 class="text-danger">{{ health.summary.down }}</h3>
+                                    <small class="text-muted">Down</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Total Services:</strong> {{ health.summary.total }}
+                </div>
+                <div class="mb-3">
+                    <strong>Uptime:</strong> <span id="uptime">Calculating...</span>
+                </div>
+                <div class="mb-3">
+                    <strong>Last Check:</strong> <span id="last-check">{{ health.timestamp }}</span>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-user-shield me-1"></i>Admin Access
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>System Overview:</strong> This dashboard provides a high-level view of the Sanchalak system's operational status. 
+                    For detailed technical information and administrative functions, please use the admin interface.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-3">
+                            <i class="fas fa-server fa-3x text-primary mb-3"></i>
+                            <h5>Core Services</h5>
+                            <p class="text-muted">Main system components are operational</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3">
+                            <i class="fas fa-database fa-3x text-success mb-3"></i>
+                            <h5>Data Services</h5>
+                            <p class="text-muted">Database and storage systems are functioning</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3">
+                            <i class="fas fa-network-wired fa-3x text-info mb-3"></i>
+                            <h5>Network Services</h5>
+                            <p class="text-muted">Communication and API services are available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshHealth() {
+    $.get('/api/health', function(data) {
+        // Update status indicator
+        $('.health-indicator').removeClass().addClass('health-indicator status-' + data.status);
+        
+        // Update message
+        $('h4').removeClass().addClass('status-' + data.status).text(data.message);
+        
+        // Update summary
+        $('#last-updated').text(data.timestamp);
+        $('#last-check').text(data.timestamp);
+        
+        // Update counts
+        $('.text-success').parent().find('h3').text(data.summary.healthy);
+        $('.text-warning').parent().find('h3').text(data.summary.warning);
+        $('.text-danger').parent().find('h3').text(data.summary.down);
+    });
+}
+
+// Auto-refresh every 30 seconds
+setInterval(refreshHealth, 30000);
+
+// Calculate uptime (simplified)
+function updateUptime() {
+    const startTime = new Date('{{ health.timestamp }}');
+    const now = new Date();
+    const diff = now - startTime;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    $('#uptime').text(`${hours}h ${minutes}m`);
+}
+
+updateUptime();
+setInterval(updateUptime, 60000);
+</script>
+{% endblock %} 

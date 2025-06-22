@@ -1,0 +1,288 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongo:
+    image: mongo:6
+    container_name: sanchalak-mongo
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "30"  # Keep 1 month of service health logs
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-sanchalak123}
+      - MONGO_INITDB_DATABASE=sanchalak
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - sanchalak-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # EFR Database Service
+  efr-db:
+    build: 
+      context: ./components/efr-db
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-efr-db
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "30"  # Keep 1 month of service health logs
+    environment:
+      - MONGODB_URI=mongodb://admin:sanchalak123@mongo:27017/sanchalak?authSource=admin
+    ports:
+      - "8001:8000"
+    depends_on:
+      - mongo
+    networks:
+      - sanchalak-network
+    volumes:
+      - efr-logs:/app/logs
+
+  # Form Filler Service
+  form-filler:
+    build: 
+      context: ./components/form-filler
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-form-filler
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "14"  # Keep 2 weeks of logs
+    volumes:
+      - form-data:/app/forms
+      - form-logs:/app/logs
+    ports:
+      - "8002:8000"
+    networks:
+      - sanchalak-network
+
+  # Status Tracker Service
+  status-tracker:
+    build: 
+      context: ./components/status-tracker
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-status-tracker
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "14"  # Keep 2 weeks of logs
+    ports:
+      - "8003:8000"
+    networks:
+      - sanchalak-network
+    volumes:
+      - status-logs:/app/logs
+
+  # AI Agent Service
+  ai-agent:
+    build: 
+      context: ./components/ai-agent
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-ai-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Increase memory limit for model downloads
+        reservations:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "14"  # Keep 2 weeks of farmer audio processing logs
+    environment:
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      - OLLAMA_HOST=http://localhost:11434
+    volumes:
+      - ai-agent-logs:/app/logs
+      - ai-agent-models:/app/models
+      - ai-agent-data:/app/data
+      - shared-uploads:/app/uploads
+    ports:
+      - "8004:8004"
+    networks:
+      - sanchalak-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI Orchestrator
+  orchestrator:
+    build: 
+      context: ./components/orchestrator
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-orchestrator
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "14"  # Keep 2 weeks of farmer session processing logs
+    environment:
+      - MONGODB_URI=mongodb://admin:sanchalak123@mongo:27017/sanchalak?authSource=admin
+      - EFR_DB_URL=http://efr-db:8000
+      - FORM_FILLER_URL=http://form-filler:8000
+      - STATUS_TRACKER_URL=http://status-tracker:8000
+      - AI_AGENT_URL=http://ai-agent:8004
+      - USE_AI_AGENT=true
+    volumes:
+      - shared-uploads:/app/uploads
+      - orchestrator-logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - efr-db
+      - form-filler
+      - status-tracker
+      - ai-agent
+    networks:
+      - sanchalak-network
+
+  # Telegram Bot Service  
+  telegram-bot:
+    build: 
+      context: ./components/telegram-bot
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-telegram-bot
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "14"  # Keep 2 weeks of farmer session logs
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - MONGO_URI=mongodb://admin:sanchalak123@mongo:27017
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - DJANGO_SECRET_KEY=sanchalak-secret-key-change-in-production
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      - DEBUG=false
+    volumes:
+      - bot-logs:/app/logs
+      - shared-uploads:/app/uploads
+    depends_on:
+      - mongo
+      - orchestrator
+    networks:
+      - sanchalak-network
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring Service
+  monitoring:
+    build: 
+      context: ./components/monitoring
+      dockerfile: dockerfiles/Dockerfile
+    container_name: sanchalak-monitoring
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=production
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - DASHBOARD_SECRET_KEY=${DASHBOARD_SECRET_KEY:-your-secret-key-change-in-production}
+    volumes:
+      - monitoring-logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - telegram-bot
+      - orchestrator
+      - efr-db
+      - form-filler
+      - status-tracker
+    networks:
+      - sanchalak-network
+    ports:
+      - "8084:8080"
+
+  # Nginx Reverse Proxy (for production)
+  nginx:
+    image: nginx:alpine
+    container_name: sanchalak-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - telegram-bot
+      - orchestrator
+      - monitoring
+    networks:
+      - sanchalak-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongo-data:
+    driver: local
+  form-data:
+    driver: local
+  # Shared uploads volume (for voice messages)
+  shared-uploads:
+    driver: local
+  # Logs volumes
+  bot-logs:
+    driver: local
+  orchestrator-logs:
+    driver: local
+  efr-logs:
+    driver: local
+  form-logs:
+    driver: local
+  status-logs:
+    driver: local
+  monitoring-logs:
+    driver: local
+  nginx-logs:
+    driver: local
+  # AI Agent volumes
+  ai-agent-logs:
+    driver: local
+  ai-agent-models:
+    driver: local
+  ai-agent-data:
+    driver: local
+
+networks:
+  sanchalak-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

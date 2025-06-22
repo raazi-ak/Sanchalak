@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Sanchalak Health Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-tools me-2"></i>Admin Dashboard</h2>
+            <div>
+                <button class="btn btn-outline-primary me-2" onclick="refreshAllData()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh All
+                </button>
+                <button class="btn btn-outline-success" onclick="checkMonitoring()">
+                    <i class="fas fa-chart-line me-1"></i>Check Monitoring
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Service Health Overview -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-server me-2"></i>Service Health Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="service-health">
+                    {% for service_name, status in services.items() %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card border-{{ 'success' if status.status == 'healthy' else 'warning' if status.status == 'warning' else 'danger' }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="card-title mb-0">
+                                        <span class="health-indicator status-{{ status.status }}"></span>
+                                        {{ service_name.replace('-', ' ').title() }}
+                                    </h6>
+                                    <span class="badge bg-{{ 'success' if status.status == 'healthy' else 'warning' if status.status == 'warning' else 'danger' }}">
+                                        {{ status.status.upper() }}
+                                    </span>
+                                </div>
+                                <p class="card-text small text-muted mt-2">{{ status.message }}</p>
+                                <small class="text-muted">Last checked: {{ status.timestamp }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Docker Management -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fab fa-docker me-2"></i>Docker Container Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="containers-table">
+                        <thead>
+                            <tr>
+                                <th>Container Name</th>
+                                <th>Status</th>
+                                <th>Image</th>
+                                <th>Ports</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" class="text-center">Loading containers...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shell Access -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-terminal me-2"></i>Shell Access</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">$</span>
+                            <input type="text" class="form-control" id="shell-command" placeholder="Enter command..." onkeypress="handleShellKeyPress(event)">
+                            <button class="btn btn-primary" onclick="executeShellCommand()">
+                                <i class="fas fa-play me-1"></i>Execute
+                            </button>
+                        </div>
+                        <div class="shell-output" id="shell-output">
+                            <div class="text-muted">Shell output will appear here...</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Quick Commands</h6>
+                        <div class="list-group">
+                            <button class="list-group-item list-group-item-action" onclick="runQuickCommand('docker ps')">
+                                <i class="fas fa-list me-2"></i>List Containers
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="runQuickCommand('docker stats --no-stream')">
+                                <i class="fas fa-chart-bar me-2"></i>Container Stats
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="runQuickCommand('docker system df')">
+                                <i class="fas fa-hdd me-2"></i>Disk Usage
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="runQuickCommand('docker-compose logs --tail=50')">
+                                <i class="fas fa-file-alt me-2"></i>Recent Logs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container Logs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Container Logs</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <select class="form-select" id="container-select" onchange="loadContainerLogs()">
+                            <option value="">Select container...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <button class="btn btn-outline-secondary" onclick="refreshContainerLogs()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh Logs
+                        </button>
+                    </div>
+                </div>
+                <div class="shell-output mt-3" id="container-logs">
+                    <div class="text-muted">Select a container to view logs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load containers on page load
+$(document).ready(function() {
+    loadContainers();
+    loadContainerSelect();
+});
+
+function refreshAllData() {
+    loadContainers();
+    refreshServiceHealth();
+}
+
+function refreshServiceHealth() {
+    $.get('/api/health', function(data) {
+        let html = '';
+        for (const [serviceName, status] of Object.entries(data)) {
+            const displayName = serviceName.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const statusClass = status.status === 'healthy' ? 'success' : 
+                               status.status === 'warning' ? 'warning' : 'danger';
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card border-${statusClass}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="card-title mb-0">
+                                    <span class="health-indicator status-${status.status}"></span>
+                                    ${displayName}
+                                </h6>
+                                <span class="badge bg-${statusClass}">
+                                    ${status.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="card-text small text-muted mt-2">${status.message}</p>
+                            <small class="text-muted">Last checked: ${status.timestamp}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        $('#service-health').html(html);
+    });
+}
+
+function loadContainers() {
+    $.get('/api/docker/containers', function(data) {
+        let html = '';
+        data.forEach(container => {
+            const statusClass = container.status === 'running' ? 'success' : 
+                               container.status === 'exited' ? 'danger' : 'warning';
+            
+            html += `
+                <tr>
+                    <td>${container.name}</td>
+                    <td><span class="badge bg-${statusClass}">${container.status}</span></td>
+                    <td>${container.image}</td>
+                    <td>${formatPorts(container.ports)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewContainerLogs('${container.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        $('#containers-table tbody').html(html);
+    });
+}
+
+function formatPorts(ports) {
+    if (!ports) return 'N/A';
+    return Object.entries(ports).map(([port, mappings]) => {
+        if (mappings) {
+            return mappings.map(mapping => `${mapping.HostPort}:${port}`).join(', ');
+        }
+        return port;
+    }).join(', ');
+}
+
+function loadContainerSelect() {
+    $.get('/api/docker/containers', function(data) {
+        let html = '<option value="">Select container...</option>';
+        data.forEach(container => {
+            html += `<option value="${container.id}">${container.name}</option>`;
+        });
+        $('#container-select').html(html);
+    });
+}
+
+function loadContainerLogs() {
+    const containerId = $('#container-select').val();
+    if (!containerId) return;
+    
+    $.get(`/api/docker/container/${containerId}/logs`, function(data) {
+        $('#container-logs').html(`<pre>${data.logs}</pre>`);
+    });
+}
+
+function refreshContainerLogs() {
+    loadContainerLogs();
+}
+
+function viewContainerLogs(containerId) {
+    $('#container-select').val(containerId);
+    loadContainerLogs();
+}
+
+function handleShellKeyPress(event) {
+    if (event.key === 'Enter') {
+        executeShellCommand();
+    }
+}
+
+function executeShellCommand() {
+    const command = $('#shell-command').val();
+    if (!command) return;
+    
+    $('#shell-output').html('<div class="text-muted">Executing command...</div>');
+    
+    $.ajax({
+        url: '/api/shell',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ command: command }),
+        success: function(data) {
+            let output = '';
+            if (data.stdout) {
+                output += `<div class="text-success"><strong>STDOUT:</strong></div><pre>${data.stdout}</pre>`;
+            }
+            if (data.stderr) {
+                output += `<div class="text-danger"><strong>STDERR:</strong></div><pre>${data.stderr}</pre>`;
+            }
+            if (!data.stdout && !data.stderr) {
+                output += `<div class="text-muted">Command executed successfully (exit code: ${data.returncode})</div>`;
+            }
+            $('#shell-output').html(output);
+        },
+        error: function(xhr) {
+            $('#shell-output').html(`<div class="text-danger">Error: ${xhr.responseJSON?.error || 'Unknown error'}</div>`);
+        }
+    });
+    
+    $('#shell-command').val('');
+}
+
+function runQuickCommand(command) {
+    $('#shell-command').val(command);
+    executeShellCommand();
+}
+
+function checkMonitoring() {
+    // This would integrate with the monitoring service
+    alert('Monitoring check initiated. Check the monitoring service logs for details.');
+}
+
+// Auto-refresh every 60 seconds
+setInterval(refreshAllData, 60000);
+</script>
+{% endblock %} 
