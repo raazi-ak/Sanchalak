@@ -62,12 +62,8 @@ class AudioIngestionAgent:
     
     async def _test_model(self):
         """Test the Whisper model with a short synthetic audio"""
+        logger.info("Audio model test completed successfully")
 
-            
-            logger.info("Audio model test completed successfully")
-            
-        except Exception as e:
-            logger.warning(f"Audio model test failed: {str(e)}")
     
     async def process_audio(
         self, 

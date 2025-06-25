@@ -16,13 +16,13 @@ from models import (
     VectorSearchRequest,
     VectorSearchResult
 )
-from errorhandler import (
+from utils.error_handeller import (
     raise_eligibility_error,
     raise_vector_db_error,
     EligibilityCheckError,
     VectorDatabaseError
 )
-from utils_logger import get_logger
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

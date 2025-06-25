@@ -1,7 +1,7 @@
 """
-Eligibility Checker Agent for Farmer AI Pipeline
+Enhanced Eligibility Checker Agent with Business Rules Engine
 
-Determines farmer eligibility for government schemes based on extracted information
+Determines farmer eligibility for government schemes using a rule-based approach
 """
 
 import asyncio
@@ -9,6 +9,16 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 import json
 from datetime import datetime
+
+# Business rules engine imports
+from business_rules import BaseVariables, BaseActions, Rule
+from business_rules.engine import run_all
+from business_rules.variables import (
+    numeric_rule_variable, string_rule_variable, 
+    boolean_rule_variable, select_rule_variable
+)
+from business_rules.actions import rule_action
+from business_rules.fields import FIELD_NUMERIC, FIELD_TEXT, FIELD_SELECT
 
 from config import get_settings
 from models import (
@@ -20,31 +30,191 @@ from utils.logger import get_logger
 settings = get_settings()
 logger = get_logger(__name__)
 
-class EligibilityCheckerAgent:
-    """Agent for checking farmer eligibility against government schemes"""
+
+class FarmerVariables(BaseVariables):
+    """Variables representing farmer information for rule evaluation"""
+    
+    def __init__(self, farmer_info: FarmerInfo):
+        self.farmer_info = farmer_info
+    
+    @numeric_rule_variable
+    def age(self):
+        """Farmer's age"""
+        return self.farmer_info.age or 0
+    
+    @numeric_rule_variable
+    def annual_income(self):
+        """Farmer's annual income in rupees"""
+        return self.farmer_info.annual_income or 0
+    
+    @numeric_rule_variable
+    def land_size_acres(self):
+        """Total land size in acres"""
+        return self.farmer_info.land_size_acres or 0
+    
+    @numeric_rule_variable
+    def family_size(self):
+        """Number of family members"""
+        return self.farmer_info.family_size or 1
+    
+    @string_rule_variable
+    def state(self):
+        """State where farmer resides"""
+        return self.farmer_info.state or ""
+    
+    @string_rule_variable
+    def district(self):
+        """District where farmer resides"""
+        return self.farmer_info.district or ""
+    
+    @string_rule_variable
+    def gender(self):
+        """Farmer's gender"""
+        return self.farmer_info.gender or ""
+    
+    @string_rule_variable
+    def land_ownership(self):
+        """Type of land ownership"""
+        return self.farmer_info.land_ownership or ""
+    
+    @string_rule_variable
+    def irrigation_type(self):
+        """Type of irrigation used"""
+        return self.farmer_info.irrigation_type or ""
+    
+    @string_rule_variable
+    def primary_crop(self):
+        """Primary crop grown by farmer"""
+        if self.farmer_info.crops and len(self.farmer_info.crops) > 0:
+            return self.farmer_info.crops[0]
+        return ""
+    
+    @boolean_rule_variable
+    def has_bank_account(self):
+        """Whether farmer has a bank account"""
+        return bool(self.farmer_info.bank_account)
+    
+    @boolean_rule_variable
+    def has_aadhaar(self):
+        """Whether farmer has Aadhaar card"""
+        return bool(self.farmer_info.aadhaar_number)
+    
+    @boolean_rule_variable
+    def has_kisan_credit_card(self):
+        """Whether farmer has Kisan Credit Card"""
+        return self.farmer_info.has_kisan_credit_card or False
+    
+    @boolean_rule_variable
+    def is_marginal_farmer(self):
+        """Whether farmer is classified as marginal (< 2.5 acres)"""
+        return (self.farmer_info.land_size_acres or 0) < 2.5
+    
+    @boolean_rule_variable
+    def is_small_farmer(self):
+        """Whether farmer is classified as small (2.5-5 acres)"""
+        land_size = self.farmer_info.land_size_acres or 0
+        return 2.5 <= land_size <= 5.0
+    
+    @boolean_rule_variable
+    def grows_food_grains(self):
+        """Whether farmer grows food grains"""
+        if not self.farmer_info.crops:
+            return False
+        food_grains = ['wheat', 'rice', 'barley', 'millet', 'maize', 'pulses']
+        return any(crop.lower() in food_grains for crop in self.farmer_info.crops)
+    
+    @boolean_rule_variable
+    def grows_cash_crops(self):
+        """Whether farmer grows cash crops"""
+        if not self.farmer_info.crops:
+            return False
+        cash_crops = ['cotton', 'sugarcane', 'tobacco', 'jute']
+        return any(crop.lower() in cash_crops for crop in self.farmer_info.crops)
+
+
+class EligibilityActions(BaseActions):
+    """Actions to be taken based on rule evaluation"""
+    
+    def __init__(self):
+        self.results = []
+        self.eligibility_scores = {}
+        self.passed_rules = {}
+        self.failed_rules = {}
+        self.recommendations = {}
+    
+    @rule_action(params={"scheme_id": FIELD_TEXT, "score": FIELD_NUMERIC})
+    def mark_eligible(self, scheme_id, score):
+        """Mark scheme as eligible with given score"""
+        self.results.append({
+            "scheme_id": scheme_id,
+            "eligible": True,
+            "score": score,
+            "action": "mark_eligible"
+        })
+        
+        if scheme_id not in self.eligibility_scores:
+            self.eligibility_scores[scheme_id] = []
+        self.eligibility_scores[scheme_id].append(score)
+    
+    @rule_action(params={"scheme_id": FIELD_TEXT, "rule_name": FIELD_TEXT})
+    def record_passed_rule(self, scheme_id, rule_name):
+        """Record that a rule was passed"""
+        if scheme_id not in self.passed_rules:
+            self.passed_rules[scheme_id] = []
+        self.passed_rules[scheme_id].append(rule_name)
+    
+    @rule_action(params={"scheme_id": FIELD_TEXT, "rule_name": FIELD_TEXT})
+    def record_failed_rule(self, scheme_id, rule_name):
+        """Record that a rule was failed"""
+        if scheme_id not in self.failed_rules:
+            self.failed_rules[scheme_id] = []
+        self.failed_rules[scheme_id].append(rule_name)
+    
+    @rule_action(params={"scheme_id": FIELD_TEXT, "recommendation": FIELD_TEXT})
+    def add_recommendation(self, scheme_id, recommendation):
+        """Add a recommendation for the scheme"""
+        if scheme_id not in self.recommendations:
+            self.recommendations[scheme_id] = []
+        self.recommendations[scheme_id].append(recommendation)
+    
+    def get_final_score(self, scheme_id):
+        """Calculate final eligibility score for a scheme"""
+        if scheme_id not in self.eligibility_scores:
+            return 0.0
+        
+        scores = self.eligibility_scores[scheme_id]
+        if not scores:
+            return 0.0
+            
+        # Average of all rule scores
+        return sum(scores) / len(scores)
+
+
+class EnhancedEligibilityCheckerAgent:
+    """Enhanced Agent for checking farmer eligibility using business rules engine"""
     
     def __init__(self):
         self.schemes_db = []
-        self.eligibility_weights = {}
+        self.business_rules = {}
         self.is_initialized = False
-        self.min_score_threshold = 0.6  # Minimum score for eligibility
+        self.min_score_threshold = 0.6
         
     async def initialize(self):
-        """Initialize the eligibility checker"""
+        """Initialize the enhanced eligibility checker"""
         try:
-            logger.info("Initializing Eligibility Checker Agent...")
+            logger.info("Initializing Enhanced Eligibility Checker Agent...")
             
             # Load default schemes
             await self._load_default_schemes()
             
-            # Initialize weights for different criteria
-            self._initialize_weights()
+            # Initialize business rules
+            await self._initialize_business_rules()
             
             self.is_initialized = True
-            logger.info("Eligibility Checker Agent initialized successfully")
+            logger.info("Enhanced Eligibility Checker Agent initialized successfully")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Eligibility Checker Agent: {str(e)}")
+            logger.error(f"Failed to initialize Enhanced Eligibility Checker Agent: {str(e)}")
             raise
     
     async def _load_default_schemes(self):
@@ -60,7 +230,8 @@ class EligibilityCheckerAgent:
                 benefit_type="direct_transfer",
                 eligibility_rules=[
                     EligibilityRule(field="land_size_acres", operator="<=", value=5.0, weight=0.9),
-                    EligibilityRule(field="land_ownership", operator="==", value="owned", weight=0.8)
+                    EligibilityRule(field="land_ownership", operator="==", value="owned", weight=0.8),
+                    EligibilityRule(field="has_bank_account", operator="==", value=True, weight=0.7)
                 ],
                 target_beneficiaries=["small farmers", "marginal farmers"],
                 implementing_agency="Ministry of Agriculture",
@@ -78,7 +249,9 @@ class EligibilityCheckerAgent:
                 benefit_amount=None,
                 benefit_type="insurance",
                 eligibility_rules=[
-                    EligibilityRule(field="crops", operator="in", value=["wheat", "rice", "cotton", "sugarcane"], weight=0.8)
+                    EligibilityRule(field="grows_food_grains", operator="==", value=True, weight=0.8),
+                    EligibilityRule(field="has_bank_account", operator="==", value=True, weight=0.7),
+                    EligibilityRule(field="land_size_acres", operator=">=", value=0.5, weight=0.6)
                 ],
                 target_beneficiaries=["all farmers"],
                 implementing_agency="Ministry of Agriculture",
@@ -98,29 +271,13 @@ class EligibilityCheckerAgent:
                 eligibility_rules=[
                     EligibilityRule(field="land_size_acres", operator=">=", value=0.5, weight=0.7),
                     EligibilityRule(field="age", operator=">=", value=18, weight=0.9),
-                    EligibilityRule(field="age", operator="<=", value=75, weight=0.9)
+                    EligibilityRule(field="age", operator="<=", value=75, weight=0.9),
+                    EligibilityRule(field="has_bank_account", operator="==", value=True, weight=0.8)
                 ],
                 target_beneficiaries=["farmers", "tenant farmers", "sharecroppers"],
                 implementing_agency="Banks",
                 application_process="Through banks and cooperative societies",
                 required_documents=["Aadhaar", "PAN", "Land records", "Income proof"],
-                is_active=True
-            ),
-            GovernmentScheme(
-                scheme_id="soil_health_card",
-                name="Soil Health Card Scheme",
-                name_hindi="मृदा स्वास्थ्य कार्ड योजना",
-                description="Soil testing and nutrient management recommendations",
-                description_hindi="मृदा परीक्षण और पोषक तत्व प्रबंधन सिफारिशें",
-                benefit_amount=None,
-                benefit_type="service",
-                eligibility_rules=[
-                    EligibilityRule(field="land_size_acres", operator=">=", value=0.1, weight=0.6)
-                ],
-                target_beneficiaries=["all farmers"],
-                implementing_agency="Department of Agriculture",
-                application_process="Through agriculture extension centers",
-                required_documents=["Land records", "Aadhaar"],
                 is_active=True
             ),
             GovernmentScheme(
@@ -133,7 +290,8 @@ class EligibilityCheckerAgent:
                 benefit_type="subsidy",
                 eligibility_rules=[
                     EligibilityRule(field="irrigation_type", operator="in", value=["drip", "sprinkler"], weight=0.8),
-                    EligibilityRule(field="land_size_acres", operator=">=", value=1.0, weight=0.7)
+                    EligibilityRule(field="land_size_acres", operator=">=", value=1.0, weight=0.7),
+                    EligibilityRule(field="has_bank_account", operator="==", value=True, weight=0.6)
                 ],
                 target_beneficiaries=["farmers adopting micro-irrigation"],
                 implementing_agency="Ministry of Water Resources",
@@ -145,27 +303,85 @@ class EligibilityCheckerAgent:
         
         logger.info(f"Loaded {len(self.schemes_db)} default schemes")
     
-    def _initialize_weights(self):
-        """Initialize weights for different eligibility criteria"""
-        self.eligibility_weights = {
-            "land_size_acres": 0.9,
-            "annual_income": 0.8,
-            "age": 0.7,
-            "crops": 0.8,
-            "irrigation_type": 0.6,
-            "land_ownership": 0.7,
-            "family_size": 0.5,
-            "state": 0.6,
-            "gender": 0.4
-        }
+    async def _initialize_business_rules(self):
+        """Initialize business rules for each scheme"""
+        self.business_rules = {}
+        
+        for scheme in self.schemes_db:
+            rules = []
+            
+            for eligibility_rule in scheme.eligibility_rules:
+                rule = self._create_business_rule(scheme, eligibility_rule)
+                if rule:
+                    rules.append(rule)
+            
+            self.business_rules[scheme.scheme_id] = rules
+        
+        logger.info(f"Initialized business rules for {len(self.business_rules)} schemes")
     
-    async def check_eligibility(
+    def _create_business_rule(self, scheme: GovernmentScheme, eligibility_rule: EligibilityRule) -> Dict:
+        """Create a business rule from an eligibility rule"""
+        
+        try:
+            # Map operators to business rules format
+            operator_map = {
+                "==": "equal_to",
+                "!=": "not_equal_to",
+                ">=": "greater_than_or_equal_to",
+                "<=": "less_than_or_equal_to",
+                ">": "greater_than",
+                "<": "less_than",
+                "in": "contains_all",
+                "not_in": "does_not_contain"
+            }
+            
+            if eligibility_rule.operator not in operator_map:
+                logger.warning(f"Unsupported operator: {eligibility_rule.operator}")
+                return None
+            
+            # Create condition
+            condition = {
+                "name": eligibility_rule.field,
+                "operator": operator_map[eligibility_rule.operator],
+                "value": eligibility_rule.value
+            }
+            
+            # Create rule
+            rule = {
+                "conditions": {
+                    "all": [condition]
+                },
+                "actions": [
+                    {
+                        "name": "mark_eligible",
+                        "params": {
+                            "scheme_id": scheme.scheme_id,
+                            "score": eligibility_rule.weight
+                        }
+                    },
+                    {
+                        "name": "record_passed_rule",
+                        "params": {
+                            "scheme_id": scheme.scheme_id,
+                            "rule_name": eligibility_rule.field
+                        }
+                    }
+                ]
+            }
+            
+            return rule
+            
+        except Exception as e:
+            logger.error(f"Failed to create business rule: {str(e)}")
+            return None
+    
+    async def check_eligibility_with_rules(
         self,
         farmer_info: FarmerInfo,
         explain_decisions: bool = True
     ) -> EligibilityResponse:
         """
-        Check farmer eligibility for all schemes
+        Check farmer eligibility using business rules engine
         
         Args:
             farmer_info: Farmer information
@@ -177,33 +393,74 @@ class EligibilityCheckerAgent:
         start_time = time.time()
         
         try:
-            logger.info(f"Checking eligibility for farmer: {farmer_info.name or 'Unknown'}")
+            logger.info(f"Checking eligibility with rules for farmer: {farmer_info.name or 'Unknown'}")
+            
+            # Initialize variables and actions
+            variables = FarmerVariables(farmer_info)
+            actions = EligibilityActions()
             
             eligible_schemes = []
             ineligible_schemes = []
-            recommended_actions = []
             
-            # Check each scheme
+            # Check each scheme using business rules
             for scheme in self.schemes_db:
                 if not scheme.is_active:
                     continue
                 
-                eligibility_check = await self._check_scheme_eligibility(
-                    farmer_info, scheme, explain_decisions
+                scheme_rules = self.business_rules.get(scheme.scheme_id, [])
+                
+                if scheme_rules:
+                    # Run business rules for this scheme
+                    try:
+                        run_all(scheme_rules, variables, actions)
+                    except Exception as e:
+                        logger.error(f"Error running rules for scheme {scheme.scheme_id}: {str(e)}")
+                        continue
+                
+                # Calculate final score and create eligibility check
+                final_score = actions.get_final_score(scheme.scheme_id)
+                passed_rules = actions.passed_rules.get(scheme.scheme_id, [])
+                failed_rules = self._get_failed_rules(scheme, passed_rules)
+                
+                # Determine status
+                status = self._determine_eligibility_status(final_score, [], failed_rules)
+                
+                # Generate explanation
+                explanation = ""
+                if explain_decisions:
+                    explanation = self._generate_explanation(
+                        scheme, status, final_score, passed_rules, failed_rules, []
+                    )
+                
+                # Get recommendations
+                recommendations = actions.recommendations.get(scheme.scheme_id, [])
+                if not recommendations:
+                    recommendations = self._generate_scheme_recommendations(
+                        farmer_info, scheme, failed_rules, []
+                    )
+                
+                eligibility_check = EligibilityCheck(
+                    scheme_id=scheme.scheme_id,
+                    scheme_name=scheme.name,
+                    status=status,
+                    score=final_score,
+                    passed_rules=passed_rules,
+                    failed_rules=failed_rules,
+                    missing_info=[],
+                    explanation=explanation,
+                    recommendations=recommendations
                 )
                 
-                if eligibility_check.status == EligibilityStatus.ELIGIBLE:
-                    eligible_schemes.append(eligibility_check)
-                elif eligibility_check.status == EligibilityStatus.PARTIALLY_ELIGIBLE:
+                if status in [EligibilityStatus.ELIGIBLE, EligibilityStatus.PARTIALLY_ELIGIBLE]:
                     eligible_schemes.append(eligibility_check)
                 else:
                     ineligible_schemes.append(eligibility_check)
             
-            # Sort by eligibility score
+            # Sort by score
             eligible_schemes.sort(key=lambda x: x.score, reverse=True)
             ineligible_schemes.sort(key=lambda x: x.score, reverse=True)
             
-            # Generate recommendations
+            # Generate overall recommendations
             recommended_actions = self._generate_recommendations(
                 farmer_info, eligible_schemes, ineligible_schemes
             )
@@ -220,11 +477,11 @@ class EligibilityCheckerAgent:
                 processing_time=processing_time
             )
             
-            logger.info(f"Eligibility check completed: {len(eligible_schemes)} eligible schemes")
+            logger.info(f"Rules-based eligibility check completed: {len(eligible_schemes)} eligible schemes")
             return response
             
         except Exception as e:
-            logger.error(f"Eligibility check failed: {str(e)}")
+            logger.error(f"Rules-based eligibility check failed: {str(e)}")
             return EligibilityResponse(
                 farmer_info=farmer_info,
                 total_schemes_checked=0,
@@ -232,122 +489,10 @@ class EligibilityCheckerAgent:
                 processing_time=time.time() - start_time
             )
     
-    async def _check_scheme_eligibility(
-        self,
-        farmer_info: FarmerInfo,
-        scheme: GovernmentScheme,
-        explain_decisions: bool
-    ) -> EligibilityCheck:
-        """Check eligibility for a single scheme"""
-        
-        try:
-            passed_rules = []
-            failed_rules = []
-            missing_info = []
-            total_score = 0.0
-            total_weight = 0.0
-            
-            # Check each eligibility rule
-            for rule in scheme.eligibility_rules:
-                farmer_value = getattr(farmer_info, rule.field, None)
-                
-                if farmer_value is None:
-                    missing_info.append(rule.field)
-                    continue
-                
-                rule_passed = self._evaluate_rule(farmer_value, rule)
-                
-                if rule_passed:
-                    passed_rules.append(rule.field)
-                    total_score += rule.weight
-                else:
-                    failed_rules.append(rule.field)
-                
-                total_weight += rule.weight
-            
-            # Calculate final score
-            if total_weight > 0:
-                final_score = total_score / total_weight
-            else:
-                final_score = 0.0
-            
-            # Determine eligibility status
-            status = self._determine_eligibility_status(
-                final_score, missing_info, failed_rules
-            )
-            
-            # Generate explanation
-            explanation = ""
-            if explain_decisions:
-                explanation = self._generate_explanation(
-                    scheme, status, final_score, passed_rules, failed_rules, missing_info
-                )
-            
-            # Generate recommendations for this scheme
-            recommendations = self._generate_scheme_recommendations(
-                farmer_info, scheme, failed_rules, missing_info
-            )
-            
-            return EligibilityCheck(
-                scheme_id=scheme.scheme_id,
-                scheme_name=scheme.name,
-                status=status,
-                score=final_score,
-                passed_rules=passed_rules,
-                failed_rules=failed_rules,
-                missing_info=missing_info,
-                explanation=explanation,
-                recommendations=recommendations
-            )
-            
-        except Exception as e:
-            logger.error(f"Failed to check eligibility for scheme {scheme.scheme_id}: {str(e)}")
-            return EligibilityCheck(
-                scheme_id=scheme.scheme_id,
-                scheme_name=scheme.name,
-                status=EligibilityStatus.INSUFFICIENT_DATA,
-                score=0.0,
-                explanation="Error occurred during eligibility check"
-            )
-    
-    def _evaluate_rule(self, farmer_value: Any, rule: EligibilityRule) -> bool:
-        """Evaluate a single eligibility rule"""
-        try:
-            if rule.operator == "==":
-                return farmer_value == rule.value
-            elif rule.operator == "!=":
-                return farmer_value != rule.value
-            elif rule.operator == ">=":
-                return float(farmer_value) >= float(rule.value)
-            elif rule.operator == "<=":
-                return float(farmer_value) <= float(rule.value)
-            elif rule.operator == ">":
-                return float(farmer_value) > float(rule.value)
-            elif rule.operator == "<":
-                return float(farmer_value) < float(rule.value)
-            elif rule.operator == "in":
-                if isinstance(rule.value, list):
-                    if isinstance(farmer_value, list):
-                        return any(item in rule.value for item in farmer_value)
-                    else:
-                        return farmer_value in rule.value
-                else:
-                    return str(rule.value).lower() in str(farmer_value).lower()
-            elif rule.operator == "not_in":
-                if isinstance(rule.value, list):
-                    if isinstance(farmer_value, list):
-                        return not any(item in rule.value for item in farmer_value)
-                    else:
-                        return farmer_value not in rule.value
-                else:
-                    return str(rule.value).lower() not in str(farmer_value).lower()
-            else:
-                logger.warning(f"Unknown operator: {rule.operator}")
-                return False
-                
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Rule evaluation error: {str(e)}")
-            return False
+    def _get_failed_rules(self, scheme: GovernmentScheme, passed_rules: List[str]) -> List[str]:
+        """Get list of failed rules by comparing against all scheme rules"""
+        all_rule_fields = [rule.field for rule in scheme.eligibility_rules]
+        return [field for field in all_rule_fields if field not in passed_rules]
     
     def _determine_eligibility_status(
         self,
@@ -357,7 +502,7 @@ class EligibilityCheckerAgent:
     ) -> EligibilityStatus:
         """Determine overall eligibility status"""
         
-        if len(missing_info) > 2:  # Too much missing information
+        if len(missing_info) > 2:
             return EligibilityStatus.INSUFFICIENT_DATA
         
         if score >= 0.8:
@@ -426,21 +571,14 @@ class EligibilityCheckerAgent:
                 recommendations.append("This scheme has age restrictions. Check if family members are eligible")
             elif rule_field == "annual_income":
                 recommendations.append("Income limits apply. Ensure accurate income documentation")
-            elif rule_field == "crops":
-                recommendations.append("Consider growing crops covered under this scheme")
+            elif rule_field == "has_bank_account":
+                recommendations.append("Open a bank account to be eligible for direct benefit transfers")
+            elif rule_field == "has_aadhaar":
+                recommendations.append("Obtain Aadhaar card for identity verification")
+            elif rule_field == "grows_food_grains":
+                recommendations.append("Consider growing food grains to qualify for crop insurance")
             elif rule_field == "irrigation_type":
-                recommendations.append("Adopt modern irrigation methods to qualify")
-        
-        # Recommendations for missing information
-        for info_field in missing_info:
-            if info_field == "land_size_acres":
-                recommendations.append("Provide land size documentation")
-            elif info_field == "annual_income":
-                recommendations.append("Obtain income certificate from local authorities")
-            elif info_field == "age":
-                recommendations.append("Provide age proof (Aadhaar/Birth certificate)")
-            elif info_field == "crops":
-                recommendations.append("Specify which crops you grow")
+                recommendations.append("Adopt modern irrigation methods like drip or sprinkler irrigation")
         
         return recommendations
     
@@ -457,14 +595,14 @@ class EligibilityCheckerAgent:
         # Priority recommendations based on eligible schemes
         if eligible_schemes:
             top_scheme = eligible_schemes[0]
-            recommendations.append(f"Apply for {top_scheme.scheme_name} first - highest eligibility score")
+            recommendations.append(f"Apply for {top_scheme.scheme_name} first - highest eligibility score ({top_scheme.score:.1%})")
             
             if len(eligible_schemes) > 1:
                 recommendations.append(f"Also consider applying for {len(eligible_schemes)-1} other eligible schemes")
         
-        # Recommendations for improvement
+        # Specific recommendations based on farmer profile
         if farmer_info.land_size_acres and farmer_info.land_size_acres < 2:
-            recommendations.append("Focus on schemes for small and marginal farmers")
+            recommendations.append("Focus on schemes for small and marginal farmers like PM-KISAN")
         
         if not farmer_info.has_kisan_credit_card:
             recommendations.append("Consider applying for Kisan Credit Card for credit support")
@@ -472,33 +610,29 @@ class EligibilityCheckerAgent:
         if farmer_info.irrigation_type == "rain fed":
             recommendations.append("Explore irrigation development schemes to increase productivity")
         
-        # Documentation recommendations
-        missing_docs = []
-        if not farmer_info.phone_number:
-            missing_docs.append("mobile number")
         if not farmer_info.bank_account:
-            missing_docs.append("bank account details")
-        
-        if missing_docs:
-            recommendations.append(f"Ensure you have: {', '.join(missing_docs)}")
+            recommendations.append("Open a bank account to receive direct benefit transfers")
         
         return recommendations
     
+    # Additional methods from original class
     async def add_scheme(self, scheme: GovernmentScheme):
-        """Add a new scheme to the database"""
+        """Add a new scheme and its business rules"""
         try:
             self.schemes_db.append(scheme)
-            logger.info(f"Added scheme: {scheme.name}")
+            
+            # Create business rules for the new scheme
+            rules = []
+            for eligibility_rule in scheme.eligibility_rules:
+                rule = self._create_business_rule(scheme, eligibility_rule)
+                if rule:
+                    rules.append(rule)
+            
+            self.business_rules[scheme.scheme_id] = rules
+            
+            logger.info(f"Added scheme with rules: {scheme.name}")
         except Exception as e:
             logger.error(f"Failed to add scheme: {str(e)}")
-    
-    async def update_schemes(self, schemes: List[GovernmentScheme]):
-        """Update the schemes database"""
-        try:
-            self.schemes_db = schemes
-            logger.info(f"Updated schemes database with {len(schemes)} schemes")
-        except Exception as e:
-            logger.error(f"Failed to update schemes: {str(e)}")
     
     async def get_scheme_by_id(self, scheme_id: str) -> Optional[GovernmentScheme]:
         """Get a scheme by ID"""
@@ -515,23 +649,12 @@ class EligibilityCheckerAgent:
         """Check if the agent is ready"""
         return self.is_initialized and len(self.schemes_db) > 0
     
-    async def cleanup(self):
-        """Cleanup resources"""
-        try:
-            self.schemes_db.clear()
-            self.eligibility_weights.clear()
-            self.is_initialized = False
-            
-            logger.info("Eligibility Checker Agent cleaned up successfully")
-            
-        except Exception as e:
-            logger.error(f"Error during Eligibility Checker cleanup: {str(e)}")
-    
     async def get_stats(self) -> Dict[str, Any]:
         """Get eligibility checker statistics"""
         return {
             "total_schemes": len(self.schemes_db),
             "active_schemes": len([s for s in self.schemes_db if s.is_active]),
+            "total_business_rules": sum(len(rules) for rules in self.business_rules.values()),
             "scheme_categories": list(set([s.benefit_type for s in self.schemes_db])),
             "min_score_threshold": self.min_score_threshold
         }
@@ -544,6 +667,7 @@ class EligibilityCheckerAgent:
             return {
                 "status": "healthy" if self.is_initialized else "not_ready",
                 "schemes_loaded": len(self.schemes_db) > 0,
+                "business_rules_loaded": len(self.business_rules) > 0,
                 "stats": stats
             }
             
@@ -553,3 +677,63 @@ class EligibilityCheckerAgent:
                 "status": "unhealthy",
                 "error": str(e)
             }
+    
+    async def cleanup(self):
+        """Cleanup resources"""
+        try:
+            self.schemes_db.clear()
+            self.business_rules.clear()
+            self.is_initialized = False
+            
+            logger.info("Enhanced Eligibility Checker Agent cleaned up successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during Enhanced Eligibility Checker cleanup: {str(e)}")
+
+
+# Usage example
+async def main():
+    """Example usage of the enhanced eligibility checker"""
+    
+    # Create and initialize the enhanced agent
+    agent = EnhancedEligibilityCheckerAgent()
+    await agent.initialize()
+    
+    # Create sample farmer info
+    farmer = FarmerInfo(
+        name="Ram Kumar",
+        age=35,
+        land_size_acres=3.5,
+        annual_income=50000,
+        crops=["wheat", "rice"],
+        irrigation_type="drip",
+        land_ownership="owned",
+        bank_account="yes",
+        aadhaar_number="1234-5678-9012",
+        has_kisan_credit_card=False,
+        state="Uttar Pradesh",
+        district="Agra"
+    )
+    
+    # Check eligibility using business rules
+    result = await agent.check_eligibility_with_rules(farmer, explain_decisions=True)
+    
+    # Print results
+    print(f"Eligibility Results for {farmer.name}:")
+    print(f"Eligible for {result.eligible_count} out of {result.total_schemes_checked} schemes")
+    print(f"Processing time: {result.processing_time:.2f} seconds")
+    
+    print("\nEligible Schemes:")
+    for scheme in result.eligible_schemes:
+        print(f"- {scheme.scheme_name} (Score: {scheme.score:.1%})")
+        print(f"  Status: {scheme.status}")
+        print(f"  Explanation: {scheme.explanation}")
+        print()
+    
+    print("Recommended Actions:")
+    for action in result.recommended_actions:
+        print(f"- {action}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
