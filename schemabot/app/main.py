@@ -23,14 +23,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 import redis.asyncio as redis
 
 from app.config import get_settings
-from api.middleware.rate_limiting import RateLimitMiddleware
-from api.middleware.logging import RequestLoggingMiddleware
-from api.middleware.monitoring import MetricsMiddleware
-from api.middleware.security import SecurityHeadersMiddleware
 from api.routes import health, schemes, conversations, eligibility
-from core.utils.logger import setup_logging
-from core.utils.cache import get_redis_client
-from core.utils.monitoring import setup_metrics
 from core.scheme.parser import SchemeParser
 from core.llm.gemma_client import GemmaClient
 

@@ -1,0 +1,73 @@
+{
+  "total_tests": 6,
+  "passed_tests": 5,
+  "success_rate": 83.33333333333334,
+  "total_time": 0.11061835289001465,
+  "all_results": {
+    "YAML Scheme Parsing": {
+      "passed": true,
+      "details": "PM Kisan scheme loaded with 7 required fields",
+      "metrics": {
+        "Parse Time (ms)": "59.78",
+        "Schemes Loaded": 1,
+        "Required Fields": 7,
+        "Rules Count": 7
+      },
+      "timestamp": "2025-07-02T08:46:42.733504"
+    },
+    "Eligibility Checking": {
+      "passed": true,
+      "details": "Eligible: True, Ineligible: False",
+      "metrics": {
+        "Eligible Case Score": "100.0%",
+        "Ineligible Case Score": "14.3%",
+        "Avg Check Time (ms)": "0.03",
+        "Rules Processed": 7
+      },
+      "timestamp": "2025-07-02T08:46:42.734127"
+    },
+    "Conversation Flow": {
+      "passed": true,
+      "details": "Generated initial and followup prompts successfully",
+      "metrics": {
+        "Initial Prompt Length": 250,
+        "Avg Prompt Gen Time (ms)": "0.00",
+        "Conversation Steps": 3
+      },
+      "timestamp": "2025-07-02T08:46:42.734404"
+    },
+    "LLM Integration": {
+      "passed": true,
+      "details": "Generated 3 responses successfully",
+      "metrics": {
+        "Total Generations": 3,
+        "Avg Response Time (ms)": "11.28",
+        "Avg Response Length": "88",
+        "Success Rate": "100%"
+      },
+      "timestamp": "2025-07-02T08:46:42.768756"
+    },
+    "End-to-End Flow": {
+      "passed": true,
+      "details": "Complete flow with 7 steps",
+      "metrics": {
+        "Total E2E Time (s)": "0.01",
+        "Conversation Steps": 7,
+        "Data Fields Collected": 7,
+        "Final Eligibility": true,
+        "Eligibility Score": "100.0%"
+      },
+      "timestamp": "2025-07-02T08:46:42.781349"
+    },
+    "Error Handling": {
+      "passed": false,
+      "details": "Handled 0/2 error scenarios",
+      "metrics": {
+        "Error Tests": 2,
+        "Errors Handled": 0,
+        "Error Handling Rate": "0.0%"
+      },
+      "timestamp": "2025-07-02T08:46:42.783289"
+    }
+  }
+}
