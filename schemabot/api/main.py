@@ -19,11 +19,8 @@ from core.eligibility.checker import EligibilityChecker
 from core.prompts.dynamic_engine import DynamicPromptEngine, ConversationContext
 from core.llm.gemma_client import get_gemma_client, gemma_client_lifespan
 from api.models import *
-from api.middleware import setup_logging, setup_monitoring
-from config.settings import get_settings
 
 # Configure structured logging
-logger = structlog.get_logger(__name__)
 
 # Prometheus metrics
 REQUEST_COUNT = Counter('sanchalak_requests_total', 'Total requests', ['method', 'endpoint', 'status'])

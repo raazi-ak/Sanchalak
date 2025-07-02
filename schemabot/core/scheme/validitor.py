@@ -16,11 +16,7 @@ from typing import List
 import yaml
 from pydantic import ValidationError
 
-from .models import Scheme, SchemeRegistry          # already present
-from ..utils.logger import get_logger
-
-log = get_logger(__name__)
-
+from models import Scheme, SchemeRegistry          # already present
 
 class SchemeValidationError(Exception):
     """Raised when a scheme file fails validation."""
@@ -53,11 +49,9 @@ class SchemeValidator:
         data = self._read_yaml(path)
         try:
             scheme = Scheme.model_validate(data)
-            log.info("scheme.valid", code=scheme.code)
             return scheme
         except ValidationError as exc:
-            log.error("scheme.invalid", file=filename, errors=len(exc.errors()))
-            raise SchemeValidationError(path, exc) from exc
+                        raise SchemeValidationError(path, exc) from exc
 
     def load_registry(self) -> SchemeRegistry:
         path = self.base_dir / "schemes_registry.yaml"

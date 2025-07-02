@@ -11,12 +11,6 @@ import psutil
 import asyncio
 from datetime import datetime, timezone
 
-from core.utils.logger import get_logger
-from core.utils.cache import get_redis_client
-from core.utils.monitoring import get_metrics_collector
-from api.dependencies import get_current_timestamp
-
-logger = get_logger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
 
 
@@ -49,7 +43,6 @@ async def readiness_check():
         await redis_client.ping()
         checks["redis"] = {"status": "ready", "latency_ms": 0}
     except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
         checks["redis"] = {"status": "not_ready", "error": str(e)}
         all_ready = False
 
@@ -58,7 +51,6 @@ async def readiness_check():
         # Placeholder for database check
         checks["database"] = {"status": "ready", "latency_ms": 0}
     except Exception as e:
-        logger.error(f"Database health check failed: {e}")
         checks["database"] = {"status": "not_ready", "error": str(e)}
         all_ready = False
 
@@ -123,7 +115,6 @@ async def health_metrics():
             "application": app_metrics
         }
     except Exception as e:
-        logger.error(f"Health metrics collection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to collect health metrics"
@@ -193,7 +184,6 @@ async def performance_metrics():
             "performance": performance_data
         }
     except Exception as e:
-        logger.error(f"Performance metrics collection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to collect performance metrics"

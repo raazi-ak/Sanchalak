@@ -25,19 +25,11 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 import redis.asyncio as redis
 
 from app.config import get_settings
-from api.middleware.rate_limiting import RateLimitMiddleware
-from api.middleware.logging import RequestLoggingMiddleware
-from api.middleware.monitoring import MetricsMiddleware
-from api.middleware.security import SecurityHeadersMiddleware
 from api.routes import health, schemes, conversations, eligibility
-from core.utils.logger import setup_logging
-from core.utils.cache import get_redis_client
-from core.utils.monitoring import setup_metrics
 from core.scheme.parser import SchemeParser
 from core.llm.gemma_client import GemmaClient
 
 # Initialize structured logging
-logger = structlog.get_logger(__name__)
 
 # Global settings
 settings = get_settings()
@@ -74,12 +66,10 @@ class SanchalakApp:
     async def initialize_dependencies(self):
         """Initialize application dependencies."""
         try:
-            logger.info("Initializing application dependencies")
 
             # Initialize Redis connection
             self.redis_client = await get_redis_client()
             await self.redis_client.ping()
-            logger.info("Redis connection established")
 
             # Initialize scheme parser
             self.scheme_parser = SchemeParser(
@@ -87,7 +77,6 @@ class SanchalakApp:
                 registry_file=settings.schemes.registry_file
             )
             await self.scheme_parser.load_schemes()
-            logger.info(f"Loaded {len(self.scheme_parser.schemes)} schemes")
 
             # Initialize LLM client
             self.llm_client = GemmaClient(
@@ -96,34 +85,22 @@ class SanchalakApp:
                 device=settings.llm.device
             )
             await self.llm_client.initialize()
-            logger.info("LLM client initialized")
 
             # Record startup metrics
             startup_duration = time.time() - self._startup_time
             STARTUP_TIME.observe(startup_duration)
-            logger.info(f"Application dependencies initialized in {startup_duration:.2f}s")
 
         except Exception as e:
-            logger.error(f"Failed to initialize dependencies: {e}")
             raise
 
     async def cleanup_dependencies(self):
         """Cleanup application dependencies."""
-        try:
-            logger.info("Cleaning up application dependencies")
 
-            if self.redis_client:
-                await self.redis_client.close()
-                logger.info("Redis connection closed")
+        if self.redis_client:
+            await self.redis_client.close()
 
-            if self.llm_client:
-                await self.llm_client.cleanup()
-                logger.info("LLM client cleaned up")
-
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
-
-
+        if self.llm_client:
+            await self.llm_client.cleanup()
 # Global app instance
 sanchalak_app = SanchalakApp()
 
