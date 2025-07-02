@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
 from enum import Enum
@@ -45,7 +45,7 @@ class EligibilityRule(BaseModel):
 
 class EligibilityLogic(BaseModel):
     rules: List[EligibilityRule]
-    logic: str = Field(default="ALL", regex="^(ALL|ANY)$")
+    logic: str = Field(default="ALL", pattern="^(ALL|ANY)$")  # Fixed: regex → pattern
     required_criteria: List[str] = []
     exclusion_criteria: List[str] = []
 
@@ -67,6 +67,8 @@ class Monitoring(BaseModel):
     participating_entities: List[str]
 
 class GovernmentScheme(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # Fix protected namespace warning
+    
     id: str
     name: str
     code: str
