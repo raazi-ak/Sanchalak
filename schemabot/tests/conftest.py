@@ -41,7 +41,7 @@ def anyio_backend() -> str:
 def client():
     """Create a test client for the FastAPI app."""
     if not APP_AVAILABLE or not FASTAPI_AVAILABLE:
-        return None
+        yield None
     
     try:
         from app.main import fastapi_app
@@ -51,6 +51,7 @@ def client():
         return None
 
 
+@pytest.fixture
 @pytest.fixture
 def sample_scheme_yaml() -> str:
     """Sample PM-KISAN scheme YAML for testing."""
