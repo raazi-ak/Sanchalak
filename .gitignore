@@ -1,5 +1,6 @@
 .san
 trans\__pycache__\
-trans\.env
+*.env
+
 
 
