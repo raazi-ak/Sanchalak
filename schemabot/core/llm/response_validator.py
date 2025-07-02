@@ -313,8 +313,7 @@ class LLMResponseValidator:
         structured_data = {"content": response}
 
         # Extract potential fields using patterns
-        intent_match = re.search(r'intent[:\s]+([^
-]+)', response, re.IGNORECASE)
+        intent_match = re.search(r'intent[:\s]+([^\n]+)', response, re.IGNORECASE)
         if intent_match:
             structured_data["intent"] = intent_match.group(1).strip()
 

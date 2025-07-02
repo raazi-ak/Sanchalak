@@ -4,9 +4,7 @@ import re
 from decimal import Decimal, InvalidOperation
 import structlog
 
-from core.scheme.models import GovernmentScheme, EligibilityRule, Operator, DataType
-
-logger = structlog.get_logger(__name__)
+from scheme.models import GovernmentScheme, EligibilityRule, Operator, DataType
 
 class EligibilityResult:
     def __init__(self, is_eligible: bool, score: float = 0.0):
@@ -38,67 +36,47 @@ class EligibilityChecker:
         Comprehensive eligibility check with detailed results
         """
         result = EligibilityResult(False)
-        
-        try:
-            # Step 1: Check for missing required fields
-            missing_fields = self._check_missing_fields(farmer_data, scheme)
-            result.missing_fields = missing_fields
-            
-            if missing_fields:
-                result.recommendations.append(
-                    f"Please provide: {', '.join(missing_fields)}"
-                )
-                return result
-            
-            # Step 2: Evaluate eligibility rules
-            rule_results = []
-            for rule in scheme.eligibility.rules:
-                rule_result = self._evaluate_rule(farmer_data, rule)
-                rule_results.append(rule_result)
-                
-                if rule_result['passed']:
-                    result.passed_rules.append(rule.rule_id)
-                else:
-                    result.failed_rules.append(rule.rule_id)
-                    if rule_result['reason']:
-                        result.recommendations.append(rule_result['reason'])
-            
-            # Step 3: Apply eligibility logic (ALL/ANY)
-            if scheme.eligibility.logic == "ALL":
-                rules_passed = all(r['passed'] for r in rule_results)
-            else:  # ANY
-                rules_passed = any(r['passed'] for r in rule_results)
-            
-            # Step 4: Check exclusion criteria
-            exclusion_failed = self._check_exclusions(farmer_data, scheme.eligibility.exclusion_criteria)
-            
-            # Step 5: Calculate final eligibility
-            result.is_eligible = rules_passed and not exclusion_failed
-            
-            # Step 6: Calculate eligibility score
-            result.score = self._calculate_eligibility_score(rule_results, scheme)
-            
-            # Step 7: Generate recommendations
-            if not result.is_eligible:
-                result.recommendations.extend(
-                    self._generate_improvement_recommendations(farmer_data, scheme, rule_results)
-                )
-            
-            logger.info(
-                f"Eligibility check completed",
-                scheme_code=scheme.code,
-                is_eligible=result.is_eligible,
-                score=result.score,
-                passed_rules=len(result.passed_rules),
-                failed_rules=len(result.failed_rules)
+
+        # Step 1: Check for missing required fields
+        missing_fields = self._check_missing_fields(farmer_data, scheme)
+        result.missing_fields = missing_fields
+
+        if missing_fields:
+            result.recommendations.append(
+                f"Please provide: {', '.join(missing_fields)}"
             )
-            
             return result
-            
-        except Exception as e:
-            logger.error(f"Eligibility check failed: {e}", scheme_code=scheme.code)
-            result.warnings.append("Error occurred during eligibility check")
-            return result
+
+        # Step 2: Evaluate eligibility rules
+        rule_results = []
+        for rule in scheme.eligibility.rules:
+            rule_result = self._evaluate_rule(farmer_data, rule)
+            rule_results.append(rule_result)
+
+            if rule_result['passed']:
+                result.passed_rules.append(rule.rule_id)
+            else:
+                result.failed_rules.append(rule.rule_id)
+                if rule_result['reason']:
+                    result.recommendations.append(rule_result['reason'])
+
+        # Step 3: Apply eligibility logic (ALL/ANY)
+        if scheme.eligibility.logic == "ALL":
+            rules_passed = all(r['passed'] for r in rule_results)
+        else:  # ANY
+            rules_passed = any(r['passed'] for r in rule_results)
+
+        # Step 4: Check exclusion criteria
+        exclusion_failed = self._check_exclusions(farmer_data, scheme.eligibility.exclusion_criteria)
+
+        # Step 5: Calculate final eligibility
+        result.is_eligible = rules_passed and not exclusion_failed
+
+        # Step 6: Calculate eligibility score
+        result.score = self._calculate_eligibility_score(rule_results, scheme)
+
+        # Step 7: Generate recommendations    
+        return result
     
     def _check_missing_fields(self, farmer_data: Dict[str, Any], scheme: GovernmentScheme) -> List[str]:
         """Check for missing required fields"""
@@ -161,7 +139,6 @@ class EligibilityChecker:
             }
             
         except Exception as e:
-            logger.error(f"Rule evaluation error: {e}", rule_id=rule.rule_id)
             return {
                 'passed': False,
                 'reason': f"Error evaluating rule {rule.rule_id}",

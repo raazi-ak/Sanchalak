@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional, Tuple
-from core.scheme.models import GovernmentScheme
-from core.scheme.parser import SchemeParser
-from core.eligibility.checker import EligibilityChecker, EligibilityResult
+from scheme.models import GovernmentScheme
+from scheme.parser import SchemeParser
+from eligibility.checker import EligibilityChecker, EligibilityResult
 from .templates import PromptBuilder, ConversationStage
 import structlog
 import re

@@ -6,7 +6,7 @@ import logging
 import structlog
 from datetime import datetime
 
-from .models import GovernmentScheme, SchemeMetadata, SchemeStatus
+from core.scheme.models import Scheme, SchemeRegistry, GovernmentScheme
 
 logger = structlog.get_logger(__name__)
 
