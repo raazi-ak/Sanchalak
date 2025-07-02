@@ -1,0 +1,57 @@
+[33mf206175[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mtranslation[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Merge pull request #6 from Annam-hack/testing
+[33m089a838[m[33m ([m[1;31morigin/testing[m[33m)[m fixed all errors with context and conversations and dependencies
+[33m23c29b8[m fixing errors
+[33m91160f4[m okay fixed error handling issues
+[33m11ad52c[m some more changes
+[33mb1b61ee[m added some scripts
+[33m4d60921[m Merge pull request #5 from Annam-hack/testing
+[33m3c17196[m alot of changes fixed things and added tests
+[33m43b78cb[m new stuff
+[33m2b294a0[m new stuff
+[33m5181aee[m commiting merges
+[33mbc8ca3d[m Merge pull request #4 from Annam-hack/testing
+[33m9895668[m new stuff
+[33mcd8c1d8[m deleted readme
+[33m97e8050[m added microservices
+[33m5b8c3d0[m new stuff
+[33m361e240[m Merge pull request #3 from Annam-hack/Agent
+[33meb497f2[m fixed some things
+[33m44b4e45[m MADE CHANGES
+[33m22658d7[m made a file
+[33m3dc9834[m deleted
+[33ma418e09[m fixed
+[33m36ccd73[m fixed: audio_injestion
+[33m17323d3[m fixed audio_injestion
+[33m907b1fe[m fixed
+[33mf4a7e1b[m Delete __pycache__ directory
+[33m7d02677[m Delete __pycache__ directory
+[33m1147b7b[m fixed .env
+[33m4a5ad7a[m fixed .env
+[33ma46c84f[m Merge branch 'main' of https://github.com/Annam-hack/Sanchalak
+[33md40b752[m fixed config
+[33m62022c6[m Delete agent/extract_info.py
+[33mc1c9c37[m Delete agent/Readme.md
+[33m0127dc6[m fixed
+[33ma1f039d[m Update .env
+[33m121d444[m Add files via upload
+[33md45161a[m Delete requirements.txt
+[33m3851e57[m Delete models.py
+[33ma304c07[m Delete main.py
+[33m1da21b4[m Delete info_extraction.py
+[33mf6b801c[m Delete config.py
+[33m33e51d7[m Delete audio_injestion.py
+[33m92f9cf0[m Delete .env
+[33m8acd383[m Create Readme.md
+[33m9afbbd5[m Delete extract_info.py
+[33m9901b68[m Delete docker-compose.yml
+[33m41b2052[m Merge pull request #2 from Annam-hack/Sanchalak-Diya
+[33m2536448[m Merge branch 'main' of https://github.com/Annam-hack/Sanchalak into Sanchalak-Diya
+[33m0de3038[m fixed app
+[33m28784cc[m hehe i have a plan
+[33me2cebb9[m Sanchalak diya (#1)
+[33m8dd29d8[m updated requirements
+[33m00d6f0d[m newest commits
+[33mb794d8d[m worked on efr_db service and orchestrator
+[33mbf65001[m initiated docker contaioner orchestrator
+[33m67c0da8[m Init
+[33mf7245c2[m Initial commit
