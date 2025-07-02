@@ -1,122 +1,38 @@
-# PM Kisan Samman Nidhi Yojana Scheme Definition
-# Production-grade YAML configuration for eligibility checking
-
-schemes:
-  - id: "pm_kisan_2024"
-    name: "Pradhan Mantri Kisan Samman Nidhi Yojana"
-    code: "PM_KISAN"
-    ministry: "Ministry of Agriculture and Farmers Welfare"
-    launched_on: "2019-02-01"
-    description: "Direct income support scheme for landholding farmers' families"
-    
-    metadata:
-      category: "agriculture"
-      disbursement: "direct_benefit_transfer"
-      version: "4.0.0"
-      status: "active"
-    
-    eligibility:
-      rules:
-        - rule_id: "PM_KISAN_001"
-          field: "land_ownership"
-          operator: "=="
-          value: true
-          data_type: "boolean"
-          description: "Must own cultivable land in their name"
-          
-        - rule_id: "PM_KISAN_002"
-          field: "farmer_type"
-          operator: "in"
-          value: ["small", "marginal", "medium"]
-          data_type: "string"
-          description: "Must be small, marginal, or medium farmer"
-          
-        - rule_id: "PM_KISAN_003"
-          field: "age"
-          operator: ">="
-          value: 18
-          data_type: "integer"
-          description: "Must be 18 years or older"
-          
-        - rule_id: "PM_KISAN_004"
-          field: "citizenship"
-          operator: "=="
-          value: "indian"
-          data_type: "string"
-          description: "Must be an Indian citizen"
-          
-        - rule_id: "PM_KISAN_005"
-          field: "land_records_updated"
-          operator: "=="
-          value: true
-          data_type: "boolean"
-          description: "Land records must be updated as of Feb 1, 2019"
-          
-        - rule_id: "PM_KISAN_006"
-          field: "bank_account_linked"
-          operator: "=="
-          value: true
-          data_type: "boolean"
-          description: "Bank account must be linked with Aadhaar"
-          
-        - rule_id: "PM_KISAN_007"
-          field: "annual_income"
-          operator: "<="
-          value: 300000
-          data_type: "float"
-          description: "Annual family income should not exceed Rs. 3 lakhs"
-      
-      logic: "ALL"
-      required_criteria:
-        - "land_ownership"
-        - "farmer_type" 
-        - "age"
-        - "citizenship"
-        - "land_records_updated"
-        - "bank_account_linked"
-        - "annual_income"
-        
-      exclusion_criteria:
-        - "government_employee"
-        - "income_tax_payer"
-        - "professional_status"
-        - "institutional_landowner"
-    
-    benefits:
-      - type: "direct_cash_transfer"
-        description: "Annual financial assistance"
-        amount: 6000.0
-        frequency: "annual"
-        coverage_details: "Paid in three equal installments of Rs. 2000 each"
-        
-      - type: "kisan_credit_card"
-        description: "Access to Kisan Credit Card for agricultural loans"
-        amount: null
-        frequency: "as_needed"
-        coverage_details: "Preferential treatment for KCC applications"
-    
-    documents:
-      - "Aadhaar Card"
-      - "Land ownership documents (Khatauni/Registry)"
-      - "Bank account details"
-      - "Citizenship certificate"
-      - "Income certificate"
-      - "Caste certificate (if applicable)"
-      - "Mobile number for DBT"
-    
-    application_modes:
-      - "online_portal"
-      - "common_service_center"
-      - "government_office"
-      - "mobile_app"
-    
-    monitoring:
-      claim_settlement_target: "Within 45 days of verification"
-      participating_entities:
-        - "State Agriculture Departments"
-        - "District Collectors"
-        - "Block Development Offices"
-        - "Common Service Centers"
-        - "Banks and Post Offices"
-    
-    notes: "Scheme benefits are transferred directly to bank accounts. eKYC is mandatory for all beneficiaries. No physical verification required for land holdings below 2 hectares."
+code: "PMKISAN"
+name: "PM-KISAN Samman Nidhi"
+description: "Income support scheme for farmers"
+category: "agriculture"
+ministry: "Ministry of Agriculture & Farmers Welfare"
+launch_date: "2019-02-24"
+status: "active"
+languages:
+  - "en"
+  - "hi"
+eligibility:
+  logic: "ALL"
+  rules:
+    - rule_id: "pmk_001"
+      field: "is_farmer"
+      operator: "equals"
+      value: true
+      data_type: "boolean"
+      description: "Must be a farmer"
+    - rule_id: "pmk_002"
+      field: "land_size"
+      operator: "greater_than"
+      value: 0
+      data_type: "float"
+      description: "Must own agricultural land"
+    - rule_id: "pmk_003"
+      field: "government_employee"
+      operator: "equals"
+      value: false
+      data_type: "boolean"
+      description: "Must not be a government employee"
+benefits:
+  - "₹6,000 per year in three installments"
+  - "Direct benefit transfer to bank account"
+documents_required:
+  - "Aadhaar card"
+  - "Land ownership documents"
+  - "Bank account details"
