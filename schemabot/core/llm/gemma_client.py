@@ -5,7 +5,7 @@ from transformers import (
     GenerationConfig,
     BitsAndBytesConfig
 )
-from typing import Optional, Dict, Any, Generator, List
+from typing import Optional, Dict, Any, Generator, List, Tuple
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor

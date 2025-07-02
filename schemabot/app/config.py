@@ -2,12 +2,16 @@
 Configuration management for Sanchalak using Pydantic V2.
 """
 
+"""
+Configuration management for Sanchalak using Pydantic V2.
+"""
+
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +31,9 @@ class RedisConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+
     """LLM configuration settings."""
     model_name: str = Field(default="gemma-2b-it")
     max_tokens: int = Field(default=512, ge=50, le=4096)

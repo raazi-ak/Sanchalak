@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
-from api.models.conversation import MessageRole
+from conversation import MessageRole
 import re
 
 class StartConversationRequest(BaseModel):

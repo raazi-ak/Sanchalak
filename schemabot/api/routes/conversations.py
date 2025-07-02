@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict
 
 # Import models and dependencies
-from api.models.conversation import ConversationContext, MessageRole
 from core.prompts.context import ConversationContext
 from core.eligibility.checker import EligibilityChecker
 from api.dependencies import get_current_user, get_metrics_collector
