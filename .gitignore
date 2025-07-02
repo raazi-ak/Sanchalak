@@ -1,0 +1,6 @@
+.san
+app.py
+trans\__pycache__\
+trans\.env
+
+utils.py
