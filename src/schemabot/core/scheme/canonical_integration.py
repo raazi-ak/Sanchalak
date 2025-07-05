@@ -9,26 +9,41 @@ import sys
 import os
 from typing import Dict, Any, List, Optional, Tuple
 import logging
+from pathlib import Path
 
-# Add path to our canonical modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'core', 'schemes'))
+# Import config
+from ..config import CANONICAL_SCHEMES_DIR
+
+# Add path to our canonical modules (from src/core/schemes)
+current_dir = Path(__file__).parent
+project_root = current_dir.parent.parent.parent
+canonical_path = project_root / "core" / "schemes"
+sys.path.append(str(canonical_path))
 
 try:
     from canonical_parser import CanonicalSchemeParser
     from canonical_models import CanonicalScheme, FieldDefinition
-except ImportError:
-    # Fallback to absolute imports
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    from core.schemes.canonical_parser import CanonicalSchemeParser
-    from core.schemes.canonical_models import CanonicalScheme, FieldDefinition
+except ImportError as e:
+    logging.error(f"Failed to import canonical modules: {e}")
+    CanonicalSchemeParser = None
+    CanonicalScheme = None
+    FieldDefinition = None
 
 logger = logging.getLogger(__name__)
 
 class CanonicalIntegration:
     """Integrates canonical YAML with schemabot's conversation system"""
     
-    def __init__(self, canonical_schemes_directory: str = "src/schemes/outputs"):
-        self.canonical_parser = CanonicalSchemeParser(canonical_schemes_directory)
+    def __init__(self, canonical_schemes_directory: str = None):
+        if canonical_schemes_directory is None:
+            canonical_schemes_directory = CANONICAL_SCHEMES_DIR
+        
+        if CanonicalSchemeParser is None:
+            logger.error("CanonicalSchemeParser not available")
+            self.canonical_parser = None
+        else:
+            self.canonical_parser = CanonicalSchemeParser(canonical_schemes_directory)
+        
         self.loaded = False
         
     async def initialize(self):
