@@ -29,7 +29,7 @@ class SanchalakMCPServer:
     """MCP Server for Sanchalak system."""
     
     def __init__(self, 
-                 efr_api_url: str = "http://localhost:8000",
+                 efr_api_url: str = "http://localhost:8001",
                  lm_studio_url: str = "http://localhost:1234/v1",
                  prolog_file_path: str = None,
                  canonical_schemes_directory: str = "src/schemes/outputs"):
@@ -186,7 +186,7 @@ class SanchalakMCPServer:
         try:
             # Step 1: Get scheme details
             logger.info(f"Step 1: Getting scheme details for {scheme_code}")
-            scheme_result = await self.execute_tool("get_scheme_details", scheme_code=scheme_code)
+            scheme_result = self.execute_tool("get_scheme_details", scheme_code=scheme_code)
             workflow_steps.append({"step": "get_scheme_details", "result": scheme_result})
             
             if not scheme_result.get("success"):
@@ -198,7 +198,7 @@ class SanchalakMCPServer:
             
             # Step 2: Generate consent request
             logger.info(f"Step 2: Generating consent request for {scheme_code}")
-            consent_result = await self.execute_tool("generate_consent_request", scheme_code=scheme_code)
+            consent_result = self.execute_tool("generate_consent_request", scheme_code=scheme_code)
             workflow_steps.append({"step": "generate_consent", "result": consent_result})
             
             if not consent_result.get("success"):
@@ -210,7 +210,7 @@ class SanchalakMCPServer:
             
             # Step 3: Get field definitions for data collection
             logger.info(f"Step 3: Getting field definitions for {scheme_code}")
-            fields_result = await self.execute_tool("get_field_definitions", scheme_code=scheme_code)
+            fields_result = self.execute_tool("get_field_definitions", scheme_code=scheme_code)
             workflow_steps.append({"step": "get_field_definitions", "result": fields_result})
             
             if not fields_result.get("success"):
@@ -258,16 +258,23 @@ def main():
     for tool in tools_list["tools"]:
         print(f"  - {tool['name']}: {tool['description']}")
     
-    # Example: Run complete workflow
-    print(f"\n=== Example: Complete Workflow ===")
-    sample_transcript = """
-    My name is Ramesh Kumar. I am 45 years old and I live in Karnataka. 
-    I have some land but I'm not sure about the exact size. 
-    I grow rice and wheat on my farm.
-    """
-    
-    workflow_result = server.run_complete_workflow(sample_transcript, "ramesh_001")
+    # Example: Run canonical workflow
+    print(f"\n=== Example: Canonical Workflow ===")
+    workflow_result = server.run_canonical_workflow("PM-KISAN", "ramesh_001")
     print(f"Workflow Result: {json.dumps(workflow_result, indent=2)}")
+    
+    # Example: Test Prolog tools
+    print(f"\n=== Example: Prolog Tools ===")
+    prolog_result = server.execute_tool("prolog_check_eligibility_with_data", farmer_data={
+        "name": "Ramesh Kumar",
+        "age": 45,
+        "land_owner": True,
+        "land_size_acres": 2.5,
+        "aadhaar_linked": True,
+        "bank_account": True,
+        "state": "Karnataka"
+    })
+    print(f"Prolog Result: {json.dumps(prolog_result, indent=2)}")
 
 if __name__ == "__main__":
     main() 

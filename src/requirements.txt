@@ -1,4 +1,5 @@
 # Global requirements for src
 fastapi
 uvicorn
-pymongo 
+pymongo
+psutil 

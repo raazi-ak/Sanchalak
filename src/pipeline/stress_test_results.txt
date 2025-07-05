@@ -1,0 +1,457 @@
+
+===============================
+1. Baseline: All eligible
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ✅ EXCLUSIONS: All passed (no exclusions apply)
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+🏆 OVERALL RESULT: ELIGIBLE
+   → All exclusions passed
+   → All requirements met
+   → Family structure valid
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ✅ YES
+Facts: 38
+
+---------------------------------
+
+
+===============================
+2. NRI
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → NRI
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: NRI
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 38
+
+---------------------------------
+
+
+===============================
+3. Government Employee (non-exempt post)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Government Employee
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Government Employee
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 38
+
+---------------------------------
+
+
+===============================
+4. Government Employee (exempt post: Group D)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ✅ EXCLUSIONS: All passed (no exclusions apply)
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+🏆 OVERALL RESULT: ELIGIBLE
+   → All exclusions passed
+   → All requirements met
+   → Family structure valid
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ✅ YES
+Facts: 38
+
+---------------------------------
+
+
+===============================
+5. High Pension Pensioner
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ✅ EXCLUSIONS: All passed (no exclusions apply)
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+🏆 OVERALL RESULT: ELIGIBLE
+   → All exclusions passed
+   → All requirements met
+   → Family structure valid
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ✅ YES
+Facts: 38
+
+---------------------------------
+
+
+===============================
+6. Professional
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Professional
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Professional
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+7. Constitutional Post Holder
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 2 active exclusions
+      → Constitutional Post Holder, Professional
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Constitutional Post Holder, Professional
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+8. Political Office Holder
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 2 active exclusions
+      → Political Office Holder, Professional
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Political Office Holder, Professional
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+9. Institutional Land Holder
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 2 active exclusions
+      → Institutional Land Holder, Professional
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Institutional Land Holder, Professional
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+10. Income Tax Payer
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 2 active exclusions
+      → Income Tax Payer, Professional
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer, Professional
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+11. Multiple Exclusions (NRI + Professional)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 3 active exclusions
+      → Income Tax Payer, Professional, NRI
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer, Professional, NRI
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 39
+
+---------------------------------
+
+
+===============================
+12. Special Provisions (valid)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ✅ SPECIAL PROVISIONS: Present and validated
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 43
+
+---------------------------------
+
+
+===============================
+13. Special Provisions (invalid/missing cert)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ✅ SPECIAL PROVISIONS: Present and validated
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 43
+
+---------------------------------
+
+
+===============================
+14. Family Structure: Adult Child
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ❌ FAMILY STRUCTURE: Not eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+   → Family structure fails
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 38
+
+---------------------------------
+
+
+===============================
+15. Family Structure: Missing Wife
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ❌ FAMILY STRUCTURE: Not eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+   → Family structure fails
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 37
+
+---------------------------------
+
+
+===============================
+16. All requirements fail (no land, no aadhaar, no bank)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ❌ FAMILY STRUCTURE: Not eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+   → Family structure fails
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 37
+
+---------------------------------
+
+
+===============================
+17. All requirements pass, but one exclusion (NRI)
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 2 active exclusions
+      → Income Tax Payer, NRI
+   ✅ REQUIREMENTS: All key requirements met
+   ❌ SPECIAL PROVISIONS: Not applicable or invalid
+   ❌ FAMILY STRUCTURE: Not eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer, NRI
+   → Family structure fails
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 37
+
+---------------------------------
+
+
+===============================
+18. All requirements and special provisions, no exclusions
+===============================
+🎯 FINAL REASONING SUMMARY:
+   ❌ EXCLUSIONS: 1 active exclusions
+      → Income Tax Payer
+   ✅ REQUIREMENTS: All key requirements met
+   ✅ SPECIAL PROVISIONS: Present and validated
+   ✅ FAMILY STRUCTURE: Eligible
+
+❌ OVERALL RESULT: NOT ELIGIBLE
+   → Exclusions apply: Income Tax Payer
+
+============================================================
+🏁 ELIGIBILITY ANALYSIS COMPLETE
+============================================================
+
+📊 Eligibility Result:
+Farmer: Ram Kumar Singh
+Eligible: ❌ NO
+Facts: 43
+
+---------------------------------
+

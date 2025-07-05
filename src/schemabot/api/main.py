@@ -2,65 +2,51 @@
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from contextlib import asynccontextmanager
 import asyncio
 import json
 import time
 from typing import Dict, Any, List, Optional
 import structlog
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-import uvicorn
+import yaml
+from pathlib import Path
+import sys
+import os
 
-# Import core components
-from core.scheme.parser import SchemeParser
-from core.eligibility.checker import EligibilityChecker
-from core.prompts.dynamic_engine import DynamicPromptEngine, ConversationContext
-from core.llm.gemma_client import get_gemma_client, gemma_client_lifespan
-from api.models import *
+# Add src to path to import our modules
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+# Import our actual components
+from efr_database.models import Farmer, DatabaseResponse
+from pipeline.pm_kisan_checker import PMKisanChecker
+import requests
 
 # Configure structured logging
-
-# Prometheus metrics
-REQUEST_COUNT = Counter('sanchalak_requests_total', 'Total requests', ['method', 'endpoint', 'status'])
-REQUEST_DURATION = Histogram('sanchalak_request_duration_seconds', 'Request duration')
-GENERATION_DURATION = Histogram('sanchalak_generation_duration_seconds', 'LLM generation duration')
+logger = structlog.get_logger()
 
 # Global components
-scheme_parser = None
-eligibility_checker = None
-prompt_engine = None
-conversation_contexts: Dict[str, ConversationContext] = {}
+scheme_registry = None
+pm_kisan_checker = None
+conversation_contexts: Dict[str, Dict] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
-    global scheme_parser, eligibility_checker, prompt_engine
+    global scheme_registry, pm_kisan_checker
     
     logger.info("Starting Sanchalak Backend...")
     
     try:
-        # Initialize components
-        settings = get_settings()
+        # Load scheme registry
+        scheme_yaml_path = Path(__file__).parent.parent.parent / "schemes" / "outputs" / "supported_schemes.yaml"
+        with open(scheme_yaml_path, 'r') as f:
+            scheme_registry = yaml.safe_load(f)
         
-        # Load scheme parser
-        scheme_parser = SchemeParser(settings.scheme_yaml_path)
-        logger.info(f"Loaded {len(scheme_parser.schemes)} schemes")
+        # Initialize PM-KISAN checker
+        pm_kisan_checker = PMKisanChecker()
         
-        # Initialize eligibility checker
-        eligibility_checker = EligibilityChecker()
-        
-        # Initialize prompt engine
-        prompt_engine = DynamicPromptEngine(scheme_parser, eligibility_checker)
-        
-        # Initialize Gemma client
-        gemma_client = get_gemma_client()
-        health = gemma_client.health_check()
-        
-        if health["status"] != "healthy":
-            raise RuntimeError(f"Gemma client unhealthy: {health}")
-        
+        logger.info(f"Loaded {len(scheme_registry.get('schemes', []))} schemes")
         logger.info("All components initialized successfully")
         
         yield
@@ -84,119 +70,52 @@ app = FastAPI(
 )
 
 # Setup middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().allowed_origins,
+    allow_origins=["*"],  # Allow all origins for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Setup logging and monitoring
-setup_logging(app)
-setup_monitoring(app)
-
-# Dependency injection
-def get_scheme_parser() -> SchemeParser:
-    return scheme_parser
-
-def get_eligibility_checker() -> EligibilityChecker:
-    return eligibility_checker
-
-def get_prompt_engine() -> DynamicPromptEngine:
-    return prompt_engine
-
-# Health and monitoring endpoints
+# Health endpoint
 @app.get("/health")
 async def health_check():
-    """Comprehensive health check"""
-    try:
-        # Check all components
-        gemma_client = get_gemma_client()
-        gemma_health = gemma_client.health_check()
-        
-        scheme_count = len(scheme_parser.schemes) if scheme_parser else 0
-        
-        return {
-            "status": "healthy",
-            "timestamp": time.time(),
-            "components": {
-                "scheme_parser": {"status": "healthy", "schemes_loaded": scheme_count},
-                "eligibility_checker": {"status": "healthy"},
-                "prompt_engine": {"status": "healthy"},
-                "gemma_client": gemma_health
-            },
-            "active_conversations": len(conversation_contexts)
-        }
-        
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail=f"Service unhealthy: {e}")
-
-@app.get("/metrics")
-async def metrics():
-    """Prometheus metrics endpoint"""
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-@app.get("/performance")
-async def performance_stats():
-    """Get performance statistics"""
-    try:
-        gemma_client = get_gemma_client()
-        stats = gemma_client.get_performance_stats()
-        
-        return {
-            "gemma_performance": stats,
-            "active_conversations": len(conversation_contexts),
-            "total_schemes": len(scheme_parser.schemes) if scheme_parser else 0
-        }
-        
-    except Exception as e:
-        logger.error(f"Performance stats error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get performance stats")
+    return {"status": "healthy"}
 
 # Scheme management endpoints
-@app.get("/schemes", response_model=List[SchemeInfo])
-async def list_schemes(
-    category: Optional[str] = None,
-    ministry: Optional[str] = None,
-    parser: SchemeParser = Depends(get_scheme_parser)
-):
+@app.get("/schemes")
+async def list_schemes():
     """List available government schemes"""
     try:
-        schemes = parser.list_schemes()
-        
-        # Apply filters
-        if category:
-            schemes = [s for s in schemes if s.get('category', '').lower() == category.lower()]
-        
-        if ministry:
-            schemes = [s for s in schemes if ministry.lower() in s.get('ministry', '').lower()]
-        
-        return [SchemeInfo(**scheme) for scheme in schemes]
-        
+        schemes = scheme_registry.get('schemes', [])
+        return {
+            "schemes": schemes,
+            "total": len(schemes)
+        }
     except Exception as e:
         logger.error(f"List schemes error: {e}")
         raise HTTPException(status_code=500, detail="Failed to list schemes")
 
-@app.get("/schemes/{scheme_code}", response_model=SchemeDetail)
-async def get_scheme_details(
-    scheme_code: str,
-    parser: SchemeParser = Depends(get_scheme_parser)
-):
+@app.get("/schemes/{scheme_code}")
+async def get_scheme_details(scheme_code: str):
     """Get detailed information about a specific scheme"""
     try:
-        scheme = parser.get_scheme(scheme_code)
+        schemes = scheme_registry.get('schemes', [])
+        scheme = next((s for s in schemes if s.get('code') == scheme_code), None)
+        
         if not scheme:
             raise HTTPException(status_code=404, detail="Scheme not found")
         
-        required_fields = parser.get_required_fields(scheme_code)
+        # Load the actual canonical YAML for detailed info
+        if scheme_code == "PM-KISAN":
+            canonical_path = Path(__file__).parent.parent.parent / "schemes" / "outputs" / "pm-kisan" / "rules_canonical_ENHANCED.yaml"
+            if canonical_path.exists():
+                with open(canonical_path, 'r') as f:
+                    canonical_data = yaml.safe_load(f)
+                scheme['canonical_data'] = canonical_data
         
-        return SchemeDetail(
-            **scheme.dict(),
-            required_fields=required_fields
-        )
+        return scheme
         
     except HTTPException:
         raise
@@ -204,55 +123,100 @@ async def get_scheme_details(
         logger.error(f"Get scheme details error: {e}")
         raise HTTPException(status_code=500, detail="Failed to get scheme details")
 
-# Conversation endpoints
-@app.post("/conversations/start", response_model=ConversationStartResponse)
-async def start_conversation(
-    request: ConversationStartRequest,
-    prompt_engine: DynamicPromptEngine = Depends(get_prompt_engine)
-):
-    """Start a new conversation for scheme eligibility checking"""
+# EFR Database integration
+@app.get("/farmer/{farmer_id}")
+async def get_farmer(farmer_id: str):
+    """Get farmer data from EFR database"""
     try:
-        # Generate initial prompt and context
-        initial_prompt, context = prompt_engine.generate_initial_prompt(request.scheme_code)
+        response = requests.get(f"http://localhost:8001/farmer/{farmer_id}")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=404, detail=f"Farmer not found: {e}")
+
+@app.post("/farmer")
+async def create_farmer(farmer_data: Dict[str, Any]):
+    """Create farmer in EFR database"""
+    try:
+        response = requests.post("http://localhost:8001/farmer", json=farmer_data)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create farmer: {e}")
+
+# Eligibility checking
+@app.post("/eligibility/check/{scheme_code}")
+async def check_eligibility(scheme_code: str, farmer_id: str):
+    """Check eligibility for a specific scheme"""
+    try:
+        if scheme_code == "PM-KISAN":
+            # Get farmer data from EFR
+            farmer_response = requests.get(f"http://localhost:8001/farmer/{farmer_id}")
+            farmer_response.raise_for_status()
+            farmer_data = farmer_response.json()
+            
+            # Check eligibility using Prolog
+            is_eligible, explanation = pm_kisan_checker.check_eligibility(farmer_id, farmer_data)
+            
+            return {
+                "scheme_code": scheme_code,
+                "farmer_id": farmer_id,
+                "is_eligible": is_eligible,
+                "explanation": explanation,
+                "farmer_data": farmer_data
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Scheme {scheme_code} not yet supported")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Eligibility check error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check eligibility")
+
+# Simple conversation endpoints
+@app.post("/conversations/")
+async def start_conversation(request: dict):
+    """Start a new conversation"""
+    try:
+        session_id = request.get("session_id")
+        scheme_code = request.get("scheme_code")
         
-        if not context:
+        if not session_id or not scheme_code:
+            raise HTTPException(status_code=400, detail="session_id and scheme_code are required")
+        
+        # Get scheme details
+        schemes = scheme_registry.get('schemes', [])
+        scheme = next((s for s in schemes if s.get('code') == scheme_code), None)
+        
+        if not scheme:
             raise HTTPException(status_code=404, detail="Scheme not found")
         
+        # Initialize conversation context
+        conversation_contexts[session_id] = {
+            "scheme_code": scheme_code,
+            "scheme_name": scheme.get('name', ''),
+            "messages": [],
+            "stage": "initial",
+            "collected_data": {}
+        }
+        
         # Generate initial response
-        gemma_client = get_gemma_client()
-        
-        generation_start = time.time()
-        initial_response = await gemma_client.generate_response_async(initial_prompt)
-        generation_time = time.time() - generation_start
-        
-        GENERATION_DURATION.observe(generation_time)
-        
-        if not initial_response:
-            raise HTTPException(status_code=500, detail="Failed to generate initial response")
-        
-        # Store conversation context
-        conversation_contexts[request.session_id] = context
+        initial_response = f"Welcome! I can help you with the {scheme.get('name', '')} scheme. What would you like to know?"
         
         # Add to conversation history
-        context.conversation_history.append({
+        conversation_contexts[session_id]["messages"].append({
             "role": "assistant",
             "content": initial_response
         })
         
-        logger.info(
-            f"Started conversation",
-            session_id=request.session_id,
-            scheme_code=request.scheme_code,
-            generation_time=generation_time
-        )
-        
-        return ConversationStartResponse(
-            session_id=request.session_id,
-            scheme_code=request.scheme_code,
-            initial_response=initial_response,
-            required_fields=scheme_parser.get_required_fields(request.scheme_code),
-            conversation_stage=context.stage
-        )
+        return {
+            "session_id": session_id,
+            "scheme_code": scheme_code,
+            "initial_response": initial_response,
+            "required_fields": scheme.get('canonical', {}).get('required_fields', []),
+            "conversation_stage": "initial"
+        }
         
     except HTTPException:
         raise
@@ -260,207 +224,70 @@ async def start_conversation(
         logger.error(f"Start conversation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to start conversation")
 
-@app.post("/conversations/continue", response_model=ConversationResponse)
-async def continue_conversation(
-    request: ConversationContinueRequest,
-    background_tasks: BackgroundTasks,
-    prompt_engine: DynamicPromptEngine = Depends(get_prompt_engine)
-):
-    """Continue an existing conversation"""
+@app.post("/conversations/{conversation_id}/messages")
+async def send_message(conversation_id: str, request: dict):
+    """Send a message to an existing conversation"""
     try:
         # Get conversation context
-        context = conversation_contexts.get(request.session_id)
+        context = conversation_contexts.get(conversation_id)
         if not context:
             raise HTTPException(status_code=404, detail="Conversation not found")
         
-        # Generate follow-up prompt
-        followup_prompt = prompt_engine.generate_followup_prompt(context, request.user_input)
+        user_input = request.get("content", "")
+        if not user_input:
+            raise HTTPException(status_code=400, detail="Message content is required")
         
-        # Generate response
-        gemma_client = get_gemma_client()
+        # Add user message to history
+        context["messages"].append({
+            "role": "user",
+            "content": user_input
+        })
         
-        generation_start = time.time()
-        response = await gemma_client.generate_response_async(followup_prompt)
-        generation_time = time.time() - generation_start
+        # Generate response based on conversation stage
+        response = generate_conversation_response(context, user_input)
         
-        GENERATION_DURATION.observe(generation_time)
+        # Add assistant response to history
+        context["messages"].append({
+            "role": "assistant",
+            "content": response
+        })
         
-        if not response:
-            raise HTTPException(status_code=500, detail="Failed to generate response")
-        
-        # Validate response
-        scheme = scheme_parser.get_scheme(context.scheme_code)
-        is_valid, issues = gemma_client.validate_response(response, {"scheme_name": scheme.name})
-        
-        if not is_valid:
-            logger.warning(f"Response validation issues: {issues}")
-        
-        # Add to conversation history
-        context.conversation_history.extend([
-            {"role": "user", "content": request.user_input},
-            {"role": "assistant", "content": response}
-        ])
-        
-        # Check if eligibility check is complete
-        eligibility_result = None
-        if context.eligibility_result:
-            eligibility_result = EligibilityResultResponse(
-                is_eligible=context.eligibility_result.is_eligible,
-                score=context.eligibility_result.score,
-                passed_rules=context.eligibility_result.passed_rules,
-                failed_rules=context.eligibility_result.failed_rules,
-                missing_fields=context.eligibility_result.missing_fields,
-                recommendations=context.eligibility_result.recommendations
-            )
-        
-        # Log conversation metrics
-        background_tasks.add_task(
-            log_conversation_metrics,
-            request.session_id,
-            context.scheme_code,
-            len(context.conversation_history),
-            generation_time,
-            is_valid
-        )
-        
-        return ConversationResponse(
-            session_id=request.session_id,
-            response=response,
-            conversation_stage=context.stage,
-            collected_data=context.collected_data,
-            eligibility_result=eligibility_result,
-            is_complete=context.stage.value == "result_delivery"
-        )
+        return {
+            "conversation_id": conversation_id,
+            "response": response,
+            "conversation_stage": context["stage"],
+            "collected_data": context.get("collected_data", {})
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Continue conversation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to continue conversation")
+        logger.error(f"Send message error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send message")
 
-@app.post("/conversations/stream")
-async def stream_conversation(
-    request: ConversationContinueRequest,
-    prompt_engine: DynamicPromptEngine = Depends(get_prompt_engine)
-):
-    """Stream conversation response for real-time interaction"""
-    try:
-        # Get conversation context
-        context = conversation_contexts.get(request.session_id)
-        if not context:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        
-        # Generate follow-up prompt
-        followup_prompt = prompt_engine.generate_followup_prompt(context, request.user_input)
-        
-        # Stream response
-        async def generate_stream():
-            try:
-                gemma_client = get_gemma_client()
-                
-                async for token in gemma_client.generate_streaming_response(followup_prompt):
-                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
-                
-                yield f"data: {json.dumps({'done': True})}\n\n"
-                
-            except Exception as e:
-                logger.error(f"Streaming error: {e}")
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        
-        return StreamingResponse(
-            generate_stream(),
-            media_type="text/plain",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable nginx buffering
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Stream conversation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to stream conversation")
+def generate_conversation_response(context: Dict, user_input: str) -> str:
+    """Generate appropriate response based on conversation context"""
+    scheme_code = context["scheme_code"]
+    stage = context["stage"]
+    
+    if scheme_code == "PM-KISAN":
+        if stage == "initial":
+            return f"I can help you with PM-KISAN eligibility. I'll need to collect some information about you. Let's start with basic details like your name, age, and location."
+        else:
+            return f"I understand you're asking about {user_input}. For PM-KISAN, I can help you check eligibility and guide you through the application process."
+    else:
+        return f"I understand you're asking about {user_input}. For the {context['scheme_name']} scheme, I can help you with eligibility requirements and application process."
 
-# Direct eligibility check endpoint
-@app.post("/eligibility/check", response_model=EligibilityCheckResponse)
-async def check_eligibility(
-    request: EligibilityCheckRequest,
-    checker: EligibilityChecker = Depends(get_eligibility_checker),
-    parser: SchemeParser = Depends(get_scheme_parser)
-):
-    """Direct eligibility check with complete farmer data"""
-    try:
-        scheme = parser.get_scheme(request.scheme_code)
-        if not scheme:
-            raise HTTPException(status_code=404, detail="Scheme not found")
-        
-        # Perform eligibility check
-        result = checker.check_eligibility(request.farmer_data, scheme)
-        
-        return EligibilityCheckResponse(
-            scheme_code=request.scheme_code,
-            scheme_name=scheme.name,
-            is_eligible=result.is_eligible,
-            eligibility_score=result.score,
-            passed_rules=result.passed_rules,
-            failed_rules=result.failed_rules,
-            missing_fields=result.missing_fields,
-            recommendations=result.recommendations,
-            benefits=scheme.benefits if result.is_eligible else [],
-            required_documents=scheme.documents if result.is_eligible else []
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Eligibility check error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to check eligibility")
-
-# Utility functions
-async def log_conversation_metrics(
-    session_id: str,
-    scheme_code: str,
-    message_count: int,
-    generation_time: float,
-    response_valid: bool
-):
-    """Log conversation metrics for monitoring"""
-    logger.info(
-        "Conversation metrics",
-        session_id=session_id,
-        scheme_code=scheme_code,
-        message_count=message_count,
-        generation_time=generation_time,
-        response_valid=response_valid
-    )
-
-# Error handlers
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler"""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    
-    REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status="500"
-    ).inc()
-    
-    return HTTPException(
+    logger.error(f"Unhandled exception: {exc}")
+    return Response(
+        content=json.dumps({"detail": "Internal server error"}),
         status_code=500,
-        detail="An unexpected error occurred"
+        media_type="application/json"
     )
 
 if __name__ == "__main__":
-    settings = get_settings()
-    
-    uvicorn.run(
-        "api.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug,
-        log_config=None,  # Use structlog instead
-        access_log=False  # Use custom middleware
-    )
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

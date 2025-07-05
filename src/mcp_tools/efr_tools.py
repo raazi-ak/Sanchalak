@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class EFRTools:
     """MCP tools for EFR database interaction."""
     
-    def __init__(self, efr_api_url: str = "http://localhost:8000"):
+    def __init__(self, efr_api_url: str = "http://localhost:8001"):
         """Initialize EFR tools."""
         self.efr_storage = EFRStorage(efr_api_url)
     

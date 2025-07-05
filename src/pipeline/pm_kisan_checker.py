@@ -54,7 +54,7 @@ class PMKisanChecker:
     def get_farmer_from_efr(self, farmer_id: str) -> Dict[str, Any]:
         """Get farmer data from EFR database."""
         try:
-            response = requests.get(f"http://localhost:8000/farmer/{farmer_id}")
+            response = requests.get(f"http://localhost:8001/farmer/{farmer_id}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -237,7 +237,7 @@ class PMKisanChecker:
             print(f"   {i:2d}. {fact}.")
         
         # 5. Add facts to Prolog and run queries
-        print(f"\n🤖 STEP 5: Running Prolog Queries")
+        print(f"\n🤖 STEP 5: Running Prolog Queries (Verbose Mode)")
         print(f"{'-'*40}")
         
         try:
@@ -265,42 +265,99 @@ class PMKisanChecker:
                 except Exception as e:
                     print(f"⚠️  Warning: Could not assert fact '{fact}': {e}")
             
-            # Test basic queries
-            print(f"🔍 Testing basic Prolog queries...")
+            # --- VERBOSE REQUIREMENT CHECKS ---
+            print(f"\n🔍 VERBOSE REQUIREMENT CHECKS:")
+            for req in [
+                'name', 'age', 'gender', 'phone_number', 'state', 'district', 'sub_district_block', 'village',
+                'land_size_acres', 'land_owner', 'date_of_land_ownership', 'bank_account', 'account_number',
+                'ifsc_code', 'aadhaar_number', 'aadhaar_linked', 'category', 'region']:
+                try:
+                    print(f"[DEBUG] Querying requirement_met({quoted_name}, {req})...")
+                    result = bool(list(self.prolog.query(f"requirement_met({quoted_name}, {req})")))
+                    print(f"[DEBUG] Result: {result}")
+                    print(f"   • Requirement '{req}': {'✅ PASS' if result else '❌ FAIL'}")
+                except Exception as e:
+                    print(f"   • Requirement '{req}': ⚠️ ERROR: {e}")
             
-            # Check if person exists
-            person_exists = bool(list(self.prolog.query(f"person({quoted_name})")))
-            print(f"   • person({quoted_name}): {'✅ YES' if person_exists else '❌ NO'}")
+            # --- VERBOSE CONDITIONAL REQUIREMENT CHECKS ---
+            print(f"\n🔍 VERBOSE CONDITIONAL REQUIREMENT CHECKS:")
+            conditional_requirements = [
+                ('government_employee_post', 'Government Employee Post'),
+                ('professional_profession', 'Professional Profession'), 
+                ('pensioner_pension', 'Pensioner Pension'),
+                ('special_region_certificate', 'Special Region Certificate')
+            ]
             
-            # Check if land_owner exists and value
-            land_owner_results = list(self.prolog.query(f"land_owner({quoted_name}, Value)"))
-            if land_owner_results:
-                land_owner_value = land_owner_results[0]['Value']
-                print(f"   • land_owner({quoted_name}, {land_owner_value}): ✅ FOUND")
-            else:
-                print(f"   • land_owner({quoted_name}, _): ❌ NOT FOUND")
+            for creq_code, creq_name in conditional_requirements:
+                try:
+                    print(f"[DEBUG] Querying check_conditional_requirement({quoted_name}, {creq_code})...")
+                    result = bool(list(self.prolog.query(f"check_conditional_requirement({quoted_name}, {creq_code})")))
+                    print(f"[DEBUG] Result: {result}")
+                    
+                    if result:
+                        print(f"   ✅ Conditional '{creq_name}': PASS")
+                        # Get detailed reasoning for why it passed
+                        if creq_code == 'special_region_certificate':
+                            # Get special provision details
+                            region_results = list(self.prolog.query(f"region_special({quoted_name}, Region)"))
+                            cert_results = list(self.prolog.query(f"has_special_certificate({quoted_name}, HasCert)"))
+                            cert_type_results = list(self.prolog.query(f"certificate_type({quoted_name}, CertType)"))
+                            
+                            if region_results and cert_results and cert_type_results:
+                                region = region_results[0]['Region']
+                                has_cert = cert_results[0]['HasCert']
+                                cert_type = cert_type_results[0]['CertType']
+                                print(f"      → Region: {region}")
+                                print(f"      → Has Certificate: {has_cert}")
+                                print(f"      → Certificate Type: {cert_type}")
+                                print(f"      → Rule: Special region certificate required and validated")
+                        
+                        elif creq_code == 'government_employee_post':
+                            gov_emp_results = list(self.prolog.query(f"is_government_employee({quoted_name}, IsEmp)"))
+                            gov_post_results = list(self.prolog.query(f"government_post({quoted_name}, Post)"))
+                            if gov_emp_results and gov_post_results:
+                                is_emp = gov_emp_results[0]['IsEmp']
+                                post = gov_post_results[0]['Post']
+                                print(f"      → Is Government Employee: {is_emp}")
+                                print(f"      → Government Post: {post}")
+                                print(f"      → Rule: Government employees must be Group D/MTS to be eligible")
+                        
+                        elif creq_code == 'professional_profession':
+                            prof_results = list(self.prolog.query(f"is_professional({quoted_name}, IsProf)"))
+                            profession_results = list(self.prolog.query(f"profession({quoted_name}, Profession)"))
+                            if prof_results and profession_results:
+                                is_prof = prof_results[0]['IsProf']
+                                profession = profession_results[0]['Profession']
+                                print(f"      → Is Professional: {is_prof}")
+                                print(f"      → Profession: {profession}")
+                                print(f"      → Rule: Professionals are excluded unless special conditions apply")
+                        
+                        elif creq_code == 'pensioner_pension':
+                            pension_results = list(self.prolog.query(f"is_pensioner({quoted_name}, IsPensioner)"))
+                            pension_amount_results = list(self.prolog.query(f"monthly_pension({quoted_name}, Amount)"))
+                            if pension_results and pension_amount_results:
+                                is_pensioner = pension_results[0]['IsPensioner']
+                                amount = pension_amount_results[0]['Amount']
+                                print(f"      → Is Pensioner: {is_pensioner}")
+                                print(f"      → Monthly Pension: Rs. {amount}")
+                                print(f"      → Rule: Pensioners with pension >= Rs. 10,000 are excluded")
+                    else:
+                        print(f"   ❌ Conditional '{creq_name}': FAIL")
+                        # Get detailed reasoning for why it failed
+                        if creq_code == 'special_region_certificate':
+                            print(f"      → Rule: No special region certificate required or validation failed")
+                        elif creq_code == 'government_employee_post':
+                            print(f"      → Rule: Not a government employee or post not eligible")
+                        elif creq_code == 'professional_profession':
+                            print(f"      → Rule: Not a professional or profession not applicable")
+                        elif creq_code == 'pensioner_pension':
+                            print(f"      → Rule: Not a pensioner or pension amount not applicable")
+                            
+                except Exception as e:
+                    print(f"   • Conditional '{creq_name}': ⚠️ ERROR: {e}")
             
-            # Check if aadhaar_linked exists and value
-            aadhaar_results = list(self.prolog.query(f"aadhaar_linked({quoted_name}, Value)"))
-            if aadhaar_results:
-                aadhaar_value = aadhaar_results[0]['Value']
-                print(f"   • aadhaar_linked({quoted_name}, {aadhaar_value}): ✅ FOUND")
-            else:
-                print(f"   • aadhaar_linked({quoted_name}, _): ❌ NOT FOUND")
-            
-            # 6. Run eligibility check
-            print(f"\n🎯 STEP 6: Eligibility Determination")
-            print(f"{'-'*40}")
-            
-            eligible = bool(list(self.prolog.query(f"eligible({quoted_name})")))
-            print(f"Final eligibility result: {'✅ ELIGIBLE' if eligible else '❌ NOT ELIGIBLE'}")
-            
-            # 7. Get comprehensive diagnostic explanation
-            print(f"\n📖 STEP 7: Detailed Reasoning Analysis")
-            print(f"{'-'*40}")
-            
-            # Check each exclusion rule individually
-            print(f"🔍 EXCLUSION ANALYSIS:")
+            # --- VERBOSE EXCLUSION CHECKS ---
+            print(f"\n🔍 VERBOSE EXCLUSION CHECKS:")
             exclusion_rules = [
                 ('institutional_land_holder', 'Institutional Land Holder'),
                 ('constitutional_post_holder', 'Constitutional Post Holder'),
@@ -311,10 +368,34 @@ class PMKisanChecker:
                 ('professional', 'Professional'),
                 ('nri', 'NRI')
             ]
+            for exclusion_code, exclusion_name in exclusion_rules:
+                try:
+                    print(f"[DEBUG] Querying exclusion_applies({quoted_name}, {exclusion_code})...")
+                    result = bool(list(self.prolog.query(f"exclusion_applies({quoted_name}, {exclusion_code})")))
+                    print(f"[DEBUG] Result: {result}")
+                    print(f"   • Exclusion '{exclusion_name}': {'❌ EXCLUDED' if result else '✅ NOT EXCLUDED'}")
+                except Exception as e:
+                    print(f"   • Exclusion '{exclusion_name}': ⚠️ ERROR: {e}")
             
+            # 6. Run eligibility check
+            print(f"\n🎯 STEP 6: Eligibility Determination")
+            print(f"{'-'*40}")
+            print(f"[DEBUG] Querying eligible({quoted_name})...")
+            eligible = bool(list(self.prolog.query(f"eligible({quoted_name})")))
+            print(f"[DEBUG] Result: {eligible}")
+            print(f"Final eligibility result: {'✅ ELIGIBLE' if eligible else '❌ NOT ELIGIBLE'}")
+            
+            # 7. Get comprehensive diagnostic explanation
+            print(f"\n📖 STEP 7: Detailed Reasoning Analysis")
+            print(f"{'-'*40}")
+            
+            # Check each exclusion rule individually
+            print(f"🔍 EXCLUSION ANALYSIS:")
             active_exclusions = []
             for exclusion_code, exclusion_name in exclusion_rules:
+                print(f"[DEBUG] Querying exclusion_applies({quoted_name}, {exclusion_code}) for analysis...")
                 exclusion_results = list(self.prolog.query(f"exclusion_applies({quoted_name}, {exclusion_code})"))
+                print(f"[DEBUG] Result: {exclusion_results}")
                 if exclusion_results:
                     active_exclusions.append(exclusion_name)
                     print(f"   ❌ {exclusion_name}: EXCLUDED")
@@ -354,13 +435,17 @@ class PMKisanChecker:
                 else:
                     print(f"   ✅ {exclusion_name}: NOT EXCLUDED")
             
-            # Check family structure
+            # Check family structure with detailed reasoning
             print(f"\n👨‍👩‍👧‍👦 FAMILY STRUCTURE ANALYSIS:")
+            print(f"[DEBUG] Querying family_eligible({quoted_name})...")
             family_results = list(self.prolog.query(f"family_eligible({quoted_name})"))
+            print(f"[DEBUG] Result: {family_results}")
+            family_members = list(self.prolog.query(f"family_member({quoted_name}, Relation, Age)"))
+            print(f"[DEBUG] family_member results: {family_members}")
+            
             if family_results:
                 print(f"   ✅ Family structure: ELIGIBLE")
-                # Show family members
-                family_members = list(self.prolog.query(f"family_member({quoted_name}, Relation, Age)"))
+                print(f"      → Rule: Must have husband, wife, and minor children (< 18)")
                 for member in family_members:
                     relation = member['Relation']
                     age = member['Age']
@@ -368,12 +453,67 @@ class PMKisanChecker:
             else:
                 print(f"   ❌ Family structure: NOT ELIGIBLE")
                 print(f"      → Rule: Must have husband, wife, and minor children (< 18)")
-                # Show what family members exist
-                family_members = list(self.prolog.query(f"family_member({quoted_name}, Relation, Age)"))
+                
+                # Detailed analysis of what's wrong
+                print(f"      → Detailed Analysis:")
+                
+                # Check for required family members
+                required_relations = ['self', 'wife']
+                found_relations = [m['Relation'] for m in family_members]
+                
+                # Check if self exists
+                self_member = next((m for m in family_members if m['Relation'] == 'self'), None)
+                if self_member:
+                    print(f"         • Self: ✅ Found (age {self_member['Age']})")
+                else:
+                    print(f"         • Self: ❌ Missing")
+                
+                # Check if wife exists
+                wife_member = next((m for m in family_members if m['Relation'] == 'wife'), None)
+                if wife_member:
+                    print(f"         • Wife: ✅ Found (age {wife_member['Age']})")
+                else:
+                    print(f"         • Wife: ❌ Missing")
+                
+                # Check children
+                children = [m for m in family_members if m['Relation'] == 'child']
+                if children:
+                    print(f"         • Children: ✅ Found {len(children)} children")
+                    for child in children:
+                        age = child['Age']
+                        if age < 18:
+                            print(f"           - Child: ✅ Minor (age {age})")
+                        else:
+                            print(f"           - Child: ❌ Adult (age {age}) - Must be < 18")
+                else:
+                    print(f"         • Children: ❌ Missing")
+                
+                # Check for other family members that might be causing issues
+                other_members = [m for m in family_members if m['Relation'] not in ['self', 'wife', 'child']]
+                if other_members:
+                    print(f"         • Other members: ⚠️ Found unexpected relations:")
+                    for member in other_members:
+                        print(f"           - {member['Relation']}: {member['Age']} years old")
+                
+                # Summary of what needs to be fixed
+                print(f"      → Summary of Issues:")
+                if not wife_member:
+                    print(f"         • Missing wife")
+                if not children:
+                    print(f"         • Missing children")
+                else:
+                    adult_children = [c for c in children if c['Age'] >= 18]
+                    if adult_children:
+                        print(f"         • Has {len(adult_children)} adult children (must be minors < 18)")
+                        for child in adult_children:
+                            print(f"           - {child['Age']} years old is too old")
+                
+                # Show current family structure
+                print(f"      → Current Family Structure:")
                 for member in family_members:
                     relation = member['Relation']
                     age = member['Age']
-                    print(f"      → {relation}: {age} years old")
+                    print(f"         → {relation}: {age} years old")
             
             # Check key requirements
             print(f"\n📋 KEY REQUIREMENTS ANALYSIS:")
@@ -384,31 +524,103 @@ class PMKisanChecker:
                 ('date_of_land_ownership', 'Land Ownership Date')
             ]
             
+            all_reqs_passed = True
             for req_pred, req_name in key_requirements:
                 req_results = list(self.prolog.query(f"{req_pred}({quoted_name}, Value)"))
                 if req_results:
                     value = req_results[0]['Value']
                     if isinstance(value, bool):
                         status = "✅ PASS" if value else "❌ FAIL"
+                        if not value:
+                            all_reqs_passed = False
                     else:
                         status = "✅ PASS" if value else "❌ FAIL"
+                        if not value:
+                            all_reqs_passed = False
                     print(f"   {status} {req_name}: {value}")
                 else:
                     print(f"   ❌ FAIL {req_name}: NOT FOUND")
+                    all_reqs_passed = False
             
-            # Final reasoning
-            print(f"\n🎯 FINAL REASONING:")
-            if active_exclusions:
-                print(f"   ❌ NOT ELIGIBLE due to exclusions:")
-                for exclusion in active_exclusions:
-                    print(f"      • {exclusion}")
-            else:
-                print(f"   ✅ NO EXCLUSIONS APPLY")
+            # Check special provisions
+            print(f"\n🔧 SPECIAL PROVISIONS ANALYSIS:")
+            special_provisions_present = False
+            try:
+                # Check if special provisions exist
+                region_special_results = list(self.prolog.query(f"region_special({quoted_name}, Region)"))
+                has_cert_results = list(self.prolog.query(f"has_special_certificate({quoted_name}, HasCert)"))
                 
-            if not family_results:
-                print(f"   ❌ NOT ELIGIBLE due to family structure")
+                if region_special_results and has_cert_results:
+                    region = region_special_results[0]['Region']
+                    has_cert = has_cert_results[0]['HasCert']
+                    
+                    if has_cert:
+                        cert_type_results = list(self.prolog.query(f"certificate_type({quoted_name}, CertType)"))
+                        if cert_type_results:
+                            cert_type = cert_type_results[0]['CertType']
+                            print(f"   ✅ Special Provisions: PRESENT")
+                            print(f"      → Region: {region}")
+                            print(f"      → Certificate: {cert_type}")
+                            print(f"      → Status: Validated")
+                            special_provisions_present = True
+                        else:
+                            print(f"   ⚠️ Special Provisions: PARTIAL")
+                            print(f"      → Region: {region}")
+                            print(f"      → Certificate: Missing type")
+                    else:
+                        print(f"   ❌ Special Provisions: INVALID")
+                        print(f"      → Region: {region}")
+                        print(f"      → Certificate: Not present")
+                else:
+                    print(f"   ❌ Special Provisions: NOT APPLICABLE")
+                    print(f"      → No special region or certificate requirements")
+            except Exception as e:
+                print(f"   ⚠️ Special Provisions: ERROR - {e}")
+            
+            # Final reasoning summary
+            print(f"\n🎯 FINAL REASONING SUMMARY:")
+            
+            # Exclusions status
+            if active_exclusions:
+                print(f"   ❌ EXCLUSIONS: {len(active_exclusions)} active exclusions")
+                print(f"      → {', '.join(active_exclusions)}")
             else:
-                print(f"   ✅ FAMILY STRUCTURE OK")
+                print(f"   ✅ EXCLUSIONS: All passed (no exclusions apply)")
+            
+            # Requirements status
+            if all_reqs_passed:
+                print(f"   ✅ REQUIREMENTS: All key requirements met")
+            else:
+                print(f"   ❌ REQUIREMENTS: Some key requirements failed")
+            
+            # Special provisions status
+            if special_provisions_present:
+                print(f"   ✅ SPECIAL PROVISIONS: Present and validated")
+            else:
+                print(f"   ❌ SPECIAL PROVISIONS: Not applicable or invalid")
+            
+            # Family structure status
+            if family_results:
+                print(f"   ✅ FAMILY STRUCTURE: Eligible")
+            else:
+                print(f"   ❌ FAMILY STRUCTURE: Not eligible")
+            
+            # Overall eligibility
+            if eligible and not active_exclusions and family_results:
+                print(f"\n🏆 OVERALL RESULT: ELIGIBLE")
+                print(f"   → All exclusions passed")
+                print(f"   → All requirements met")
+                print(f"   → Family structure valid")
+                if special_provisions_present:
+                    print(f"   → Special provisions validated")
+            else:
+                print(f"\n❌ OVERALL RESULT: NOT ELIGIBLE")
+                if active_exclusions:
+                    print(f"   → Exclusions apply: {', '.join(active_exclusions)}")
+                if not family_results:
+                    print(f"   → Family structure fails")
+                if not all_reqs_passed:
+                    print(f"   → Some requirements failed")
             
             return eligible, "Detailed analysis completed above"
             

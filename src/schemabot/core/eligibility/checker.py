@@ -6,7 +6,7 @@ import re
 from decimal import Decimal, InvalidOperation
 import structlog
 
-from scheme.models import GovernmentScheme, EligibilityRule, Operator, DataType
+from core.scheme.models import GovernmentScheme, EligibilityRule, Operator, DataType
 
 class EligibilityResult:
     def __init__(self, is_eligible: bool, score: float = 0.0):

@@ -15,9 +15,9 @@ from datetime import datetime
 import sys
 import os
 
-# Import canonical modules from their current location in schemabot
-from schemabot.core.scheme.canonical_parser import CanonicalSchemeParser
-from schemabot.core.scheme.canonical_models import CanonicalScheme, FieldDefinition, ConsentRequest
+# Import canonical modules from their current location in core
+from core.schemes.canonical_parser import CanonicalSchemeParser
+from core.schemes.canonical_models import CanonicalScheme, FieldDefinition, ConsentRequest
 
 logger = logging.getLogger(__name__)
 

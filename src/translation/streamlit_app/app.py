@@ -3,6 +3,7 @@
 import streamlit as st
 import io
 import base64
+import time
 from streamlit.components.v1 import html
 from utils import transcribe_audio, tts_response, audio_to_bytesio, autoplay_audio
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
@@ -12,7 +13,7 @@ import tempfile
 import os
 
 
-SANCHALAK_API_BASE_URL=http://localhost:8000
+SANCHALAK_API_BASE_URL = "http://localhost:8000"
 
 
 # Initialize session state variables if not already present
@@ -411,12 +412,13 @@ with col1:
                             # Step 1: Start conversation if first time
                             if "conversation_id" not in st.session_state:
                                 scheme_code = "PMKISAN"  # You can make this dynamic via dropdown
+                                session_id = f"session_{int(time.time())}_{selected_lang_code}"
                                 start_resp = requests.post("http://127.0.0.1:8000/conversations/", json={
                                     "scheme_code": scheme_code,
-                                    "language": selected_lang_code
+                                    "session_id": session_id
                                 })
                                 if start_resp.status_code == 200:
-                                    st.session_state.conversation_id = start_resp.json().get("conversation_id")
+                                    st.session_state.conversation_id = session_id
                                 else:
                                     st.session_state.chat_history.append(("bot", "⚠️ Failed to start conversation"))
                                     st.rerun()
@@ -424,11 +426,11 @@ with col1:
                             # Step 2: Send message to Sanchalak backend
                             msg_resp = requests.post(
                                 f"http://127.0.0.1:8000/conversations/{st.session_state.conversation_id}/messages",
-                                json={"role": "user", "content": user_text}
+                                json={"content": user_text}
                             )
 
                             if msg_resp.status_code == 200:
-                                bot_text = msg_resp.json().get("content", "👋")
+                                bot_text = msg_resp.json().get("response", "👋")
                             else:
                                 bot_text = "⚠️ Could not reach backend."
 
