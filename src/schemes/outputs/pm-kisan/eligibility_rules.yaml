@@ -1,0 +1,21 @@
+rules:
+  - name: "land_owner(X, true)"
+    description: "Farmer must be a land owner."
+    required: true
+
+  - name: "aadhaar_linked(X, true)"
+    description: "Aadhaar must be linked."
+    required: true
+
+  - name: "bank_account(X, true)"
+    description: "Bank account must be present."
+    required: true
+
+  - name: "age(X, Age), Age >= 18"
+    description: "Farmer must be at least 18 years old."
+    required: true
+
+  - name: "eligible(X)"
+    description: "All eligibility conditions for PM-KISAN are satisfied."
+    required: true
+    type: composite 

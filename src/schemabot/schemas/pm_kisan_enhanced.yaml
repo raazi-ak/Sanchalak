@@ -1,0 +1,604 @@
+schemes:
+  - id: "pm_kisan_2024"
+    name: "Pradhan Mantri Kisan Samman Nidhi Yojana"
+    code: "PM_KISAN"
+    ministry: "Ministry of Agriculture and Farmers Welfare"
+    launched_on: "2019-02-01"
+    description: "Direct income support scheme for landholding farmers' families with canonical data model"
+    
+    # Enhanced Data Model Section
+    data_model:
+      # Basic Information
+      basic_info:
+        farmer_id:
+          type: "string"
+          required: true
+          description: "Unique identifier for the farmer"
+          prolog_fact: "farmer_id(Person, ID)"
+          validation: "non_empty_string"
+        
+        name:
+          type: "string"
+          required: true
+          description: "Full name of the farmer"
+          prolog_fact: "name(Person, Name)"
+          validation: "non_empty_string"
+        
+        age:
+          type: "integer"
+          required: true
+          description: "Age in years (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "age(Person, Age)"
+          validation: "range(18, 120)"
+        
+        gender:
+          type: "enum"
+          required: true
+          values: ["male", "female", "other"]
+          description: "Gender of the farmer (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "gender(Person, Gender)"
+          validation: "enum_values"
+        
+        phone_number:
+          type: "string"
+          required: true
+          description: "Mobile number (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "phone_number(Person, Phone)"
+          validation: "phone_format"
+        
+        father_name:
+          type: "string"
+          required: false
+          description: "Father's name (Optional attribute per PM-KISAN Portal)"
+          prolog_fact: "father_name(Person, FatherName)"
+          validation: "non_empty_string"
+        
+        address:
+          type: "string"
+          required: false
+          description: "Address (Optional attribute per PM-KISAN Portal)"
+          prolog_fact: "address(Person, Address)"
+          validation: "non_empty_string"
+        
+        date_of_birth:
+          type: "date"
+          required: false
+          description: "Date of birth (Optional attribute per PM-KISAN Portal)"
+          prolog_fact: "date_of_birth(Person, DateOfBirth)"
+          validation: "date_format"
+        
+        survey_number:
+          type: "string"
+          required: false
+          description: "Survey number (Optional attribute per PM-KISAN Portal)"
+          prolog_fact: "survey_number(Person, SurveyNumber)"
+          validation: "non_empty_string"
+        
+        khasra_number:
+          type: "string"
+          required: false
+          description: "Khasra number (Optional attribute per PM-KISAN Portal)"
+          prolog_fact: "khasra_number(Person, KhasraNumber)"
+          validation: "non_empty_string"
+      
+      # Location Information
+      location:
+        state:
+          type: "string"
+          required: true
+          description: "State of residence (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "state(Person, State)"
+          validation: "non_empty_string"
+        
+        district:
+          type: "string"
+          required: true
+          description: "District (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "district(Person, District)"
+          validation: "non_empty_string"
+        
+        village:
+          type: "string"
+          required: true
+          description: "Village (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "village(Person, Village)"
+          validation: "non_empty_string"
+        
+        sub_district_block:
+          type: "string"
+          required: true
+          description: "Sub-District/Block (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "sub_district_block(Person, Block)"
+          validation: "non_empty_string"
+        
+        pincode:
+          type: "string"
+          required: false
+          description: "Postal pincode"
+          prolog_fact: "pincode(Person, Pincode)"
+          validation: "pincode_format"
+      
+      # Land Information
+      land:
+        land_size_acres:
+          type: "float"
+          required: true
+          description: "Land size in acres (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "land_size_acres(Person, Acres)"
+          validation: "positive_float"
+        
+        land_ownership:
+          type: "enum"
+          required: true
+          values: ["owned", "leased", "sharecropping", "joint", "unknown"]
+          description: "Type of land ownership"
+          prolog_fact: "land_ownership(Person, Type)"
+          validation: "enum_values"
+        
+        date_of_land_ownership:
+          type: "date"
+          required: true
+          description: "Date when land ownership was established (Critical: Must be on or before 01.02.2019 for eligibility)"
+          prolog_fact: "date_of_land_ownership(Person, Date)"
+          validation: "date_format"
+        
+        irrigation_type:
+          type: "enum"
+          required: false
+          values: ["rain_fed", "canal", "borewell", "well", "drip", "sprinkler", "tube_well", "surface", "flood", "unknown"]
+          description: "Type of irrigation"
+          prolog_fact: "irrigation_type(Person, Type)"
+          validation: "enum_values"
+      
+      # Agricultural Information
+      agriculture:
+        crops:
+          type: "list"
+          required: false
+          description: "List of crops grown"
+          prolog_fact: "crops_item(Person, Crop)"
+          validation: "list_of_strings"
+        
+        farming_equipment:
+          type: "list"
+          required: false
+          description: "List of farming equipment owned"
+          prolog_fact: "farming_equipment_item(Person, Equipment)"
+          validation: "list_of_strings"
+        
+        annual_income:
+          type: "float"
+          required: false
+          description: "Annual income in rupees"
+          prolog_fact: "annual_income(Person, Income)"
+          validation: "non_negative_float"
+      
+      # Family Information (Atomic Facts)
+      family:
+        family_members:
+          type: "list_of_objects"
+          required: false
+          description: "List of family members with atomic details"
+          structure:
+            relation:
+              type: "enum"
+              values: ["husband", "wife", "son", "daughter", "father", "mother", "brother", "sister", "grandfather", "grandmother", "other"]
+              description: "Relationship to farmer"
+            name:
+              type: "string"
+              description: "Name of family member"
+            age:
+              type: "integer"
+              description: "Age of family member"
+            gender:
+              type: "enum"
+              values: ["male", "female", "other"]
+              description: "Gender of family member"
+            occupation:
+              type: "string"
+              required: false
+              description: "Occupation of family member"
+            is_minor:
+              type: "boolean"
+              description: "Whether family member is minor (<18 years)"
+          prolog_facts:
+            - "family_member(Person, Relation, Name, Age)"
+            - "family_member_gender(Person, Relation, Name, Gender)"
+            - "family_member_occupation(Person, Relation, Name, Occupation)"
+            - "family_member_minor(Person, Relation, Name, IsMinor)"
+          validation: "list_of_family_members"
+      
+      # Financial Information
+      financial:
+        bank_account:
+          type: "boolean"
+          required: true
+          description: "Whether farmer has a bank account"
+          prolog_fact: "bank_account(Person, HasAccount)"
+          validation: "boolean"
+        
+        bank_name:
+          type: "string"
+          required: false
+          description: "Name of the bank"
+          prolog_fact: "bank_name(Person, BankName)"
+          validation: "non_empty_string"
+        
+        account_number:
+          type: "string"
+          required: true
+          description: "Bank account number (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "account_number(Person, AccountNumber)"
+          validation: "account_format"
+        
+        ifsc_code:
+          type: "string"
+          required: true
+          description: "IFSC code of the bank (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "ifsc_code(Person, IFSC)"
+          validation: "ifsc_format"
+        
+        has_kisan_credit_card:
+          type: "boolean"
+          required: false
+          description: "Whether farmer has Kisan Credit Card"
+          prolog_fact: "has_kisan_credit_card(Person, HasKCC)"
+          validation: "boolean"
+      
+      # Identity and Documentation
+      identity:
+        aadhaar_number:
+          type: "string"
+          required: true
+          description: "Aadhaar number (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "aadhaar_number(Person, Aadhaar)"
+          validation: "aadhaar_format"
+        
+        aadhaar_linked:
+          type: "boolean"
+          required: true
+          description: "Whether Aadhaar is linked"
+          prolog_fact: "aadhaar_linked(Person, IsLinked)"
+          validation: "boolean"
+        
+        category:
+          type: "enum"
+          required: true
+          values: ["general", "sc", "st", "obc", "minority", "bpl"]
+          description: "Social category (Essential attribute per PM-KISAN Portal)"
+          prolog_fact: "category(Person, Category)"
+          validation: "enum_values"
+        
+        voter_id:
+          type: "string"
+          required: false
+          description: "Voter ID number (Alternative ID when Aadhaar not available)"
+          prolog_fact: "voter_id(Person, VoterID)"
+          validation: "voter_id_format"
+      
+      # Employment and Professional Information
+      employment:
+        is_government_employee:
+          type: "boolean"
+          required: false
+          description: "Whether farmer is a government employee"
+          prolog_fact: "is_government_employee(Person, IsEmployee)"
+          validation: "boolean"
+        
+        government_post:
+          type: "string"
+          required: false
+          description: "Government post if applicable"
+          prolog_fact: "government_post(Person, Post)"
+          validation: "non_empty_string"
+        
+        is_income_tax_payer:
+          type: "boolean"
+          required: false
+          description: "Whether farmer pays income tax"
+          prolog_fact: "is_income_tax_payer(Person, IsTaxPayer)"
+          validation: "boolean"
+        
+        is_professional:
+          type: "boolean"
+          required: false
+          description: "Whether farmer is a professional (Doctor, Engineer, etc.)"
+          prolog_fact: "is_professional(Person, IsProfessional)"
+          validation: "boolean"
+        
+        profession:
+          type: "string"
+          required: false
+          description: "Specific profession if applicable"
+          prolog_fact: "profession(Person, Profession)"
+          validation: "non_empty_string"
+        
+        is_pensioner:
+          type: "boolean"
+          required: false
+          description: "Whether farmer is a pensioner"
+          prolog_fact: "is_pensioner(Person, IsPensioner)"
+          validation: "boolean"
+        
+        monthly_pension:
+          type: "float"
+          required: false
+          description: "Monthly pension amount if applicable"
+          prolog_fact: "monthly_pension(Person, Amount)"
+          validation: "non_negative_float"
+        
+        is_nri:
+          type: "boolean"
+          required: false
+          description: "Whether farmer is an NRI"
+          prolog_fact: "is_nri(Person, IsNRI)"
+          validation: "boolean"
+      
+      # Special Provisions
+      special_provisions:
+        region_special:
+          type: "enum"
+          required: false
+          values: ["north_east", "manipur", "nagaland", "jharkhand", "none"]
+          description: "Special region provisions if applicable"
+          prolog_fact: "region_special(Person, Region)"
+          validation: "enum_values"
+        
+        has_special_certificate:
+          type: "boolean"
+          required: false
+          description: "Whether farmer has special certificate for region"
+          prolog_fact: "has_special_certificate(Person, HasCertificate)"
+          validation: "boolean"
+        
+        certificate_type:
+          type: "string"
+          required: false
+          description: "Type of special certificate"
+          prolog_fact: "certificate_type(Person, Type)"
+          validation: "non_empty_string"
+      
+      # Derived Fields (Computed by Prolog)
+      derived_fields:
+        family_size:
+          type: "integer"
+          required: false
+          description: "Total family size (derived from family_members)"
+          prolog_fact: "family_size(Person, Size)"
+          computation: "count(family_member(Person, _, _, _))"
+        
+        dependents:
+          type: "integer"
+          required: false
+          description: "Number of dependents (derived from family_members)"
+          prolog_fact: "dependents(Person, Count)"
+          computation: "count(family_member_minor(Person, _, _, true))"
+        
+        is_husband_wife_minor_children:
+          type: "boolean"
+          required: false
+          description: "Whether family structure matches husband, wife, and minor children"
+          prolog_fact: "is_husband_wife_minor_children(Person, IsMatch)"
+          computation: "has_husband(Person) AND has_wife(Person) AND has_minor_children(Person)"
+        
+        land_owner:
+          type: "boolean"
+          required: false
+          description: "Whether farmer is a land owner (derived from land_ownership)"
+          prolog_fact: "land_owner(Person, IsOwner)"
+          computation: "land_ownership(Person, 'owned')"
+    
+    # Validation Rules
+    validation_rules:
+      required_for_eligibility:
+        - "farmer_id"
+        - "name"
+        - "age"
+        - "gender"
+        - "phone_number"
+        - "state"
+        - "district"
+        - "sub_district_block"
+        - "village"
+        - "land_size_acres"
+        - "land_ownership"
+        - "date_of_land_ownership"
+        - "bank_account"
+        - "account_number"
+        - "ifsc_code"
+        - "aadhaar_number"
+        - "aadhaar_linked"
+        - "category"
+      
+      conditional_requirements:
+        - if: "is_government_employee = true"
+          then: "government_post is required"
+        - if: "is_professional = true"
+          then: "profession is required"
+        - if: "is_pensioner = true"
+          then: "monthly_pension is required"
+        - if: "region_special != none"
+          then: "has_special_certificate is required"
+    
+    # LLM Extraction Prompts
+    extraction_prompts:
+      main_extraction:
+        prompt: |
+          Extract all required information for PM-KISAN eligibility from the following transcript.
+          Return a JSON object with all fields from the data model.
+          
+          ESSENTIAL FIELDS (must be captured): farmer_id, name, age, gender, phone_number, state, district, sub_district_block, village, land_size_acres, land_ownership, date_of_land_ownership, bank_account, account_number, ifsc_code, aadhaar_number, aadhaar_linked, category
+          
+          For family members, extract each person mentioned with their relation, name, age, and gender.
+          
+          SPECIAL REGION DETECTION AND EXTRACTION:
+          Check if farmer is from special regions and extract accordingly:
+          
+          - If state is in North East (Arunachal Pradesh, Assam, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, Tripura):
+            * region_special: "north_east" (for general NE states) OR "manipur" OR "nagaland"
+            * has_special_certificate: true/false
+            * certificate_type: "community_land_certificate" (for general NE) OR "village_authority_certificate" (for Manipur) OR "village_council_certificate" (for Nagaland)
+            * certificate_details: {
+                "issued_by": "Village Chief/Council/Authority",
+                "issue_date": "YYYY-MM-DD",
+                "authenticated_by": "Sub-divisional Officer/Deputy Commissioner",
+                "certificate_number": "if available"
+              }
+          
+          - If state is Jharkhand:
+            * region_special: "jharkhand"
+            * has_special_certificate: true/false
+            * certificate_type: "vanshavali_certificate"
+            * certificate_details: {
+                "issued_by": "Village Revenue Officials",
+                "issue_date": "YYYY-MM-DD",
+                "authenticated_by": "District Revenue Authority",
+                "lineage_chart_submitted": true/false,
+                "gram_sabha_verified": true/false
+              }
+          
+          - If not from special region:
+            * region_special: "none"
+            * has_special_certificate: false
+            * certificate_type: null
+            * certificate_details: null
+          
+          CONDITIONAL FIELDS:
+          - If is_government_employee: true, extract government_post
+          - If is_professional: true, extract profession
+          - If is_pensioner: true, extract monthly_pension
+          
+          Transcript: {transcript}
+          
+          JSON Response:
+        
+        expected_format: "json"
+        validation: "schema_validation"
+      
+      clarification_prompts:
+        land_size: "Aapke paas kitne acre zameen hai? (How many acres of land do you have?)"
+        land_ownership: "Aapki zameen kis type ki hai? (owned/leased/sharecropping/joint) (What type of land ownership do you have?)"
+        bank_account: "Kya aapke paas bank account hai? (Do you have a bank account?)"
+        aadhaar: "Kya aapka Aadhaar number linked hai? (Is your Aadhaar number linked?)"
+        family_members: "Aapke family mein kaun kaun hain? Har member ka naam, umar, aur relation batayein. (Who are in your family? Please tell name, age, and relation of each member.)"
+        
+        # Special region clarification prompts
+        special_region_manipur: "Kya aapke paas Village authority (Chairman/Chief) ka certificate hai jo aapko zameen cultivate karne ki permission deta hai? (Do you have a certificate from Village authority (Chairman/Chief) authorizing you to cultivate land?)"
+        special_region_nagaland: "Kya aapke paas village council/authority/chief ka certificate hai jo aapki land holding ke bare mein hai? (Do you have a certificate from village council/authority/chief regarding your land holding?)"
+        special_region_jharkhand: "Kya aapne Vanshavali (Lineage) certificate submit kiya hai jo aapke ancestors ke naam ke sath land record entry se linked hai? (Have you submitted a Vanshavali (Lineage) certificate linked to land record entry with your ancestor's name?)"
+        special_region_northeast: "Kya aapke paas community-based land ownership ka certificate hai? (Do you have a certificate for community-based land ownership?)"
+        
+        # Conditional field prompts
+        government_post: "Agar aap government employee hain, to aapka post/designation kya hai? (If you are a government employee, what is your post/designation?)"
+        profession: "Agar aap professional hain (Doctor, Engineer, etc.), to aapka profession kya hai? (If you are a professional (Doctor, Engineer, etc.), what is your profession?)"
+        monthly_pension: "Agar aap pensioner hain, to aapka monthly pension kitna hai? (If you are a pensioner, what is your monthly pension amount?)"
+    
+    # Original eligibility rules (for backward compatibility)
+    eligibility:
+      rules:
+        - rule_id: "PM_KISAN_001"
+          field: "land_owner"
+          operator: "=="
+          value: true
+          data_type: "boolean"
+          description: "Must be a landholding farmer family as per land records of the State/UT"
+        - rule_id: "PM_KISAN_002"
+          field: "date_of_land_ownership"
+          operator: "<="
+          value: "2019-02-01"
+          data_type: "date"
+          description: "Land ownership as on 01.02.2019 is required for eligibility"
+        - rule_id: "PM_KISAN_003"
+          field: "aadhaar_linked"
+          operator: "=="
+          value: true
+          data_type: "boolean"
+          description: "Aadhaar number must be provided"
+        - rule_id: "PM_KISAN_004"
+          field: "bank_account"
+          operator: "=="
+          value: true
+          data_type: "boolean"
+          description: "Must have a valid bank account for Direct Benefit Transfer"
+        - rule_id: "PM_KISAN_005"
+          field: "category"
+          operator: "in"
+          value: ["general", "sc", "st", "obc", "minority", "bpl"]
+          data_type: "string"
+          description: "Category information to be captured for all beneficiaries"
+      logic: "ALL"
+      required_criteria:
+        - "land_ownership"
+        - "date_of_land_ownership"
+        - "aadhaar_linked"
+        - "bank_account"
+        - "category"
+      exclusion_criteria:
+        - "government_employee"
+        - "income_tax_payer"
+        - "professional"
+        - "pensioner_high_income"
+        - "nri"
+    
+    # Metadata
+    metadata:
+      category: "agriculture"
+      disbursement: "direct_benefit_transfer"
+      version: "5.0.0"
+      status: "active"
+      canonical_integration: true
+    
+    # Benefits
+    benefits:
+      - type: "direct_cash_transfer"
+        description: "Annual financial assistance"
+        amount: 6000.0
+        frequency: "annual"
+        coverage_details: "Paid in three equal installments of Rs. 2000 each"
+    
+    # Documents
+    documents:
+      - "Aadhaar Card"
+      - "Land ownership documents"
+      - "Bank account details"
+      - "Category Certificate (if applicable)"
+      - "Voter ID/Driving Licence/NREGA Job Card (alternate IDs)"
+      - "Mobile Number (for SMS alerts)"
+      - "Address Proof"
+    
+    # Application modes
+    application_modes:
+      - "online_portal"
+      - "common_service_center"
+      - "State/UT Government upload on PM-Kisan Portal"
+      - "Village/district-wise list upload"
+      - "Fresh entry/registration on portal"
+      - "Correction window for authorized users"
+    
+    # Monitoring
+    monitoring:
+      claim_settlement_target: "Within 45 days"
+      participating_entities:
+        - "State Agriculture Departments"
+        - "District Collectors"
+        - "State/UT Governments"
+        - "Central Government"
+      grievance_redressal: true
+      pmu_setup: true
+      review_mechanism:
+        - "National Level Review Committee (headed by Cabinet Secretary)"
+        - "State and District Level Review/Monitoring Committees"
+    
+    # Special provisions
+    special_provisions:
+      - region: "North East States"
+        description: "In North Eastern States, where land ownership rights are community-based and it may not be possible to assess the quantum of landholder farmers, an alternate implementation mechanism for eligibility will be developed and approved by a Committee of Union Ministers and State Chief Ministers or their representatives, based on proposals by the concerned North Eastern States."
+      - region: "Manipur"
+        description: "For identification of bona fide beneficiaries under PM-Kisan Scheme in Manipur, a certificate issued by the Village authority (Chairman/Chief) authorizing any tribal family to cultivate a piece of land may be accepted. Such certification must be authenticated by the concerned sub-divisional officers."
+      - region: "Nagaland"
+        description: "For community-owned cultivable land in Nagaland under permanent cultivation, a certificate issued by the village council/authority/village chieftain regarding land holding, duly verified by the administrative head of the circle/sub-division and countersigned by the Deputy Commissioner of the District, shall suffice. For Jhum land (as per Section–2(7) of the Nagaland Jhum Land Act, 1970), identification is based on certification by the village council/chief/head, verified and countersigned as above, and the beneficiary must be included in the state's Agriculture Census of 2015-16."
+      - region: "Jharkhand"
+        description: "In Jharkhand, the farmer must submit a 'Vanshavali (Lineage)' linked to the entry of land record comprising their ancestor's name, giving a chart of successor. This lineage chart is submitted before the Gram Sabha for objections, then verified by village/circle revenue officials and countersigned by the District revenue authority. Names are uploaded to the PM-Kisan portal after verification and subject to exclusion criteria."
+    
+    # Notes
+    notes: "PM-KISAN scheme with canonical data model integration. The scheme is implemented through an Aadhaar-linked electronic database. The list of beneficiaries is valid for one year and is subject to revision in case of changes in land records. Administrative charges are provided to States/UTs for implementation. Project Monitoring Units (PMUs) are set up at Central and State/UT levels. All special provisions and exceptions are detailed in the 'special_provisions' section for full transparency and downstream logic." 
