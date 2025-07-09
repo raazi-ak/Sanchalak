@@ -1,12 +1,10 @@
 from typing import Dict, Any, List, Optional, Tuple
-from ..scheme.models import GovernmentScheme
-from ..scheme.parser import SchemeParser
-from ..scheme.canonical_integration import CanonicalIntegration
-from ..eligibility.checker import EligibilityChecker, EligibilityResult
+from scheme.models import GovernmentScheme
+from scheme.parser import SchemeParser
+from eligibility.checker import EligibilityChecker, EligibilityResult
 from .templates import PromptBuilder, ConversationStage
 import structlog
 import re
-import json
 
 logger = structlog.get_logger(__name__)
 
@@ -21,8 +19,6 @@ class ConversationContext:
         self.current_field: Optional[str] = None
         self.attempts_count: Dict[str, int] = {}
         self.eligibility_result: Optional[EligibilityResult] = None
-        self.field_order: List[str] = []  # Track field collection order
-        self.validation_errors: List[str] = []  # Track validation errors
 
 class DynamicPromptEngine:
     """Main engine for generating dynamic prompts based on conversation context"""
@@ -30,25 +26,17 @@ class DynamicPromptEngine:
     def __init__(self, scheme_parser: SchemeParser, eligibility_checker: EligibilityChecker):
         self.scheme_parser = scheme_parser
         self.eligibility_checker = eligibility_checker
-        self.canonical_integration = CanonicalIntegration()
         self.prompt_builder = PromptBuilder()
         self.data_extractors = self._initialize_data_extractors()
     
-    async def generate_initial_prompt(self, scheme_code: str) -> Tuple[str, ConversationContext]:
-        """Generate the initial greeting prompt using canonical data"""
-        # Initialize canonical integration
-        await self.canonical_integration.initialize()
-        
-        # Get canonical scheme info
-        scheme_info = self.canonical_integration.get_scheme_info_for_prompts(scheme_code)
-        if not scheme_info:
+    def generate_initial_prompt(self, scheme_code: str) -> Tuple[str, ConversationContext]:
+        """Generate the initial greeting prompt"""
+        scheme = self.scheme_parser.get_scheme(scheme_code)
+        if not scheme:
             return "I'm sorry, I couldn't find information about that scheme.", None
         
         context = ConversationContext(scheme_code)
-        
-        # Get required fields in proper order
-        required_fields = self.canonical_integration.get_required_fields(scheme_code)
-        context.field_order = required_fields
+        required_fields = self.scheme_parser.get_required_fields(scheme_code)
         
         if not required_fields:
             return "This scheme doesn't require any specific information to check eligibility.", context
@@ -56,33 +44,29 @@ class DynamicPromptEngine:
         context.current_field = required_fields[0]
         context.stage = ConversationStage.GREETING
         
-        # Prepare template variables using canonical data
+        # Prepare template variables
         variables = {
-            "scheme_name": scheme_info["scheme_name"],
-            "ministry": scheme_info["ministry"],
-            "description": scheme_info["description"],
-            "benefits_summary": f"Comprehensive benefits for {scheme_info['scheme_name']}",
-            "first_required_field": self._format_field_request_canonical(scheme_code, required_fields[0])
+            "scheme_name": scheme.name,
+            "ministry": scheme.ministry,
+            "description": scheme.description,
+            "benefits_summary": self._format_benefits_summary(scheme),
+            "first_required_field": self._format_field_request(scheme, required_fields[0])
         }
         
         prompt = self.prompt_builder.build_prompt(ConversationStage.GREETING, variables)
         
-        logger.info(f"Generated initial prompt for scheme: {scheme_code} using canonical data")
+        logger.info(f"Generated initial prompt for scheme: {scheme_code}")
         return prompt, context
     
-    async def generate_followup_prompt(
+    def generate_followup_prompt(
         self, 
         context: ConversationContext, 
         user_input: str
     ) -> str:
-        """Generate follow-up prompt based on user input and context using canonical data"""
+        """Generate follow-up prompt based on user input and context"""
         
-        # Initialize canonical integration if needed
-        await self.canonical_integration.initialize()
-        
-        # Get canonical scheme info
-        scheme_info = self.canonical_integration.get_scheme_info_for_prompts(context.scheme_code)
-        if not scheme_info:
+        scheme = self.scheme_parser.get_scheme(context.scheme_code)
+        if not scheme:
             return "I'm sorry, there was an error accessing the scheme information."
         
         # Add user input to conversation history
@@ -91,246 +75,144 @@ class DynamicPromptEngine:
             "content": user_input
         })
         
-        # Extract data from user input using canonical field definitions
-        extracted_data = await self._extract_data_from_input_canonical(user_input, context.current_field, context.scheme_code)
+        # Extract data from user input
+        extracted_data = self._extract_data_from_input(user_input, context.current_field, scheme)
         
         # Update collected data if extraction was successful
         if extracted_data:
             context.collected_data.update(extracted_data)
             context.attempts_count[context.current_field] = 0  # Reset attempts
-            context.validation_errors = []  # Clear validation errors
-            
-            # Move to next field
-            next_field = self._get_next_field(context)
-            if next_field:
-                context.current_field = next_field
-                context.stage = ConversationStage.DATA_COLLECTION
-                return self._generate_data_collection_prompt_canonical(context, user_input, context.scheme_code)
-            else:
-                # All fields collected, run eligibility check
-                context.stage = ConversationStage.ELIGIBILITY_CHECK
-                return await self._generate_eligibility_check_canonical(context, scheme_info)
         else:
             # Increment attempts for current field
             context.attempts_count[context.current_field] = context.attempts_count.get(context.current_field, 0) + 1
         
-            # Check if too many attempts
+        # Determine next action based on current state
+        return self._determine_next_action(context, user_input, scheme)
+    
+    def _determine_next_action(
+        self, 
+        context: ConversationContext, 
+        user_input: str, 
+        scheme: GovernmentScheme
+    ) -> str:
+        """Determine the next action based on conversation state"""
+        
+        required_fields = self.scheme_parser.get_required_fields(context.scheme_code)
+        missing_fields = [f for f in required_fields if f not in context.collected_data]
+        
+        # Check if we need clarification
+        if context.current_field and context.attempts_count.get(context.current_field, 0) > 0:
             if context.attempts_count[context.current_field] >= 3:
-                # Move to next field or end
-                next_field = self._get_next_field(context)
-                if next_field:
-                    context.current_field = next_field
+                # Too many attempts, move to next field or end
+                missing_fields = [f for f in missing_fields if f != context.current_field]
+                if missing_fields:
+                    context.current_field = missing_fields[0]
                     context.stage = ConversationStage.DATA_COLLECTION
-                    return self._generate_data_collection_prompt_canonical(context, user_input, context.scheme_code)
                 else:
-                    # All fields attempted, run eligibility check with available data
-                    context.stage = ConversationStage.ELIGIBILITY_CHECK
-                    return await self._generate_eligibility_check_canonical(context, scheme_info)
+                    return self._generate_eligibility_check(context, scheme)
             else:
                 # Ask for clarification
                 context.stage = ConversationStage.CLARIFICATION
-                return self._generate_clarification_prompt_canonical(context, user_input, context.scheme_code)
+                return self._generate_clarification_prompt(context, user_input, scheme)
         
-    def _get_next_field(self, context: ConversationContext) -> Optional[str]:
-        """Get the next field to collect based on field order"""
-        if not context.field_order:
-            return None
+        # Check if all data is collected
+        if not missing_fields:
+            return self._generate_eligibility_check(context, scheme)
         
-        collected_fields = set(context.collected_data.keys())
-        for field in context.field_order:
-            if field not in collected_fields:
-                return field
+        # Continue data collection
+        context.current_field = missing_fields[0]
+        context.stage = ConversationStage.DATA_COLLECTION
         
-        return None
+        return self._generate_data_collection_prompt(context, user_input, scheme, missing_fields)
     
-    async def _extract_data_from_input_canonical(
+    def _generate_data_collection_prompt(
+        self, 
+        context: ConversationContext, 
+        user_input: str, 
+        scheme: GovernmentScheme,
+        missing_fields: List[str]
+    ) -> str:
+        """Generate data collection prompt"""
+        
+        variables = {
+            "scheme_name": scheme.name,
+            "collected_data": self._format_collected_data(context.collected_data),
+            "missing_fields": self._format_missing_fields(missing_fields, scheme),
+            "user_input": user_input,
+            "next_field": self._format_field_request(scheme, missing_fields[0]),
+            "current_field": context.current_field or "unknown"
+        }
+        
+        return self.prompt_builder.build_prompt(ConversationStage.DATA_COLLECTION, variables)
+    
+    def _generate_clarification_prompt(
+        self, 
+        context: ConversationContext, 
+        user_input: str, 
+        scheme: GovernmentScheme
+    ) -> str:
+        """Generate clarification prompt"""
+        
+        field_metadata = self.scheme_parser.get_field_metadata(context.scheme_code, context.current_field)
+        
+        variables = {
+            "scheme_name": scheme.name,
+            "clarification_needed": f"Information for {context.current_field} was not clear",
+            "user_input": user_input,
+            "expected_format": field_metadata.get('description', 'Valid information') if field_metadata else 'Valid information',
+            "field_name": context.current_field,
+            "example_format": self._get_field_example(context.current_field, field_metadata)
+        }
+        
+        return self.prompt_builder.build_prompt(ConversationStage.CLARIFICATION, variables)
+    
+    def _generate_eligibility_check(self, context: ConversationContext, scheme: GovernmentScheme) -> str:
+        """Generate eligibility result prompt"""
+        
+        # Perform eligibility check
+        eligibility_result = self.eligibility_checker.check_eligibility(context.collected_data, scheme)
+        context.eligibility_result = eligibility_result
+        context.stage = ConversationStage.RESULT_DELIVERY
+        
+        # Format result details
+        if eligibility_result.is_eligible:
+            result_details = self._format_eligible_result(scheme, eligibility_result)
+            additional_instructions = "Congratulate the farmer and provide next steps for application."
+        else:
+            result_details = self._format_ineligible_result(scheme, eligibility_result)
+            additional_instructions = "Be empathetic and provide helpful recommendations."
+        
+        variables = {
+            "scheme_name": scheme.name,
+            "eligibility_status": "ELIGIBLE" if eligibility_result.is_eligible else "NOT ELIGIBLE",
+            "eligibility_score": eligibility_result.score,
+            "result_details": result_details,
+            "additional_instructions": additional_instructions
+        }
+        
+        return self.prompt_builder.build_prompt(ConversationStage.RESULT_DELIVERY, variables)
+    
+    def _extract_data_from_input(
         self, 
         user_input: str, 
         field_name: str, 
-        scheme_code: str
+        scheme: GovernmentScheme
     ) -> Optional[Dict[str, Any]]:
-        """Extract structured data from user input using canonical field definitions"""
+        """Extract structured data from user input"""
         
         if not field_name:
             return None
         
-        # Get canonical field metadata
-        field_metadata = self.canonical_integration.get_field_metadata(scheme_code, field_name)
-        if not field_metadata:
-            return None
-        
-        # Use existing extractors if available
         extractor = self.data_extractors.get(field_name)
         if extractor:
-            extracted = extractor(user_input)
-            if extracted:
-                # Validate extracted data
-                is_valid, errors = self._validate_extracted_data(extracted, field_metadata)
-                if is_valid:
-                    return extracted
-                else:
-                    logger.warning(f"Validation failed for {field_name}: {errors}")
-                    return None
+            return extractor(user_input)
         
-        # Use canonical field metadata for extraction
-        extracted = self._generic_data_extraction_canonical(user_input, field_name, field_metadata)
-        if extracted:
-            # Validate extracted data
-            is_valid, errors = self._validate_extracted_data(extracted, field_metadata)
-            if is_valid:
-                return extracted
-            else:
-                logger.warning(f"Validation failed for {field_name}: {errors}")
-                return None
+        # Generic extraction based on field metadata
+        field_metadata = self.scheme_parser.get_field_metadata(scheme.code, field_name)
+        if field_metadata:
+            return self._generic_data_extraction(user_input, field_name, field_metadata)
         
         return None
-    
-    def _validate_extracted_data(self, extracted_data: Dict[str, Any], field_metadata: Dict[str, Any]) -> Tuple[bool, List[str]]:
-        """Validate extracted data against field metadata"""
-        errors = []
-        
-        for field_name, value in extracted_data.items():
-            data_type = field_metadata.get("data_type")
-            validation_rules = field_metadata.get("validation")
-            
-            if data_type == "integer":
-                try:
-                    int_value = int(value)
-                    # Check range if specified
-                    if validation_rules and "min" in validation_rules and int_value < validation_rules["min"]:
-                        errors.append(f"{field_name} must be at least {validation_rules['min']}")
-                    if validation_rules and "max" in validation_rules and int_value > validation_rules["max"]:
-                        errors.append(f"{field_name} must be at most {validation_rules['max']}")
-                except (ValueError, TypeError):
-                    errors.append(f"{field_name} must be a valid number")
-            
-            elif data_type == "float":
-                try:
-                    float_value = float(value)
-                    # Check range if specified
-                    if validation_rules and "min" in validation_rules and float_value < validation_rules["min"]:
-                        errors.append(f"{field_name} must be at least {validation_rules['min']}")
-                    if validation_rules and "max" in validation_rules and float_value > validation_rules["max"]:
-                        errors.append(f"{field_name} must be at most {validation_rules['max']}")
-                except (ValueError, TypeError):
-                    errors.append(f"{field_name} must be a valid number")
-            
-            elif data_type == "enum":
-                allowed_values = field_metadata.get("values", [])
-                if value not in allowed_values:
-                    errors.append(f"{field_name} must be one of: {', '.join(allowed_values)}")
-            
-            elif data_type == "boolean":
-                if not isinstance(value, bool):
-                    errors.append(f"{field_name} must be true or false")
-        
-        return len(errors) == 0, errors
-    
-    def _generate_data_collection_prompt_canonical(
-        self, 
-        context: ConversationContext, 
-        user_input: str, 
-        scheme_code: str
-    ) -> str:
-        """Generate data collection prompt using canonical data"""
-        
-        field_name = context.current_field
-        field_metadata = self.canonical_integration.get_field_metadata(scheme_code, field_name)
-        
-        if not field_metadata:
-            return f"Please provide your {field_name.replace('_', ' ')}"
-        
-        description = field_metadata.get('description', '')
-        data_type = field_metadata.get('data_type', 'string')
-        values = field_metadata.get('values', [])
-        
-        prompt = f"Please provide your {field_name.replace('_', ' ').title()}"
-        
-        if description:
-            prompt += f": {description}"
-        
-        if data_type == 'enum' and values:
-            prompt += f"\n\nAvailable options: {', '.join(values)}"
-        
-        # Add examples
-        examples = self.canonical_integration.get_field_prompt_examples(scheme_code, field_name)
-        if examples:
-            prompt += f"\n\nExamples:\n" + "\n".join([f"• {ex}" for ex in examples[:3]])
-        
-        # Add progress indicator
-        total_fields = len(context.field_order)
-        completed_fields = len(context.collected_data)
-        prompt += f"\n\nProgress: {completed_fields}/{total_fields} fields completed"
-        
-        return prompt
-    
-    def _generate_clarification_prompt_canonical(
-        self, 
-        context: ConversationContext, 
-        user_input: str, 
-        scheme_code: str
-    ) -> str:
-        """Generate clarification prompt using canonical data"""
-        
-        field_name = context.current_field
-        field_metadata = self.canonical_integration.get_field_metadata(scheme_code, field_name)
-        
-        if not field_metadata:
-            return f"I didn't understand your response for {field_name.replace('_', ' ')}. Could you please clarify?"
-        
-        description = field_metadata.get('description', '')
-        data_type = field_metadata.get('data_type', 'string')
-        values = field_metadata.get('values', [])
-        
-        prompt = f"I need clarification about your {field_name.replace('_', ' ').title()}"
-        
-        if description:
-            prompt += f": {description}"
-        
-        if data_type == 'enum' and values:
-            prompt += f"\n\nPlease choose from: {', '.join(values)}"
-        
-        # Add examples
-        examples = self.canonical_integration.get_field_prompt_examples(scheme_code, field_name)
-        if examples:
-            prompt += f"\n\nExamples:\n" + "\n".join([f"• {ex}" for ex in examples[:2]])
-        
-        # Add validation errors if any
-        if context.validation_errors:
-            prompt += f"\n\nIssues found:\n" + "\n".join([f"• {error}" for error in context.validation_errors[:3]])
-        
-        return prompt
-    
-    async def _generate_eligibility_check_canonical(self, context: ConversationContext, scheme_info: Dict[str, Any]) -> str:
-        """Generate eligibility check prompt using canonical data"""
-        
-        # Validate collected data using canonical Pydantic models
-        is_valid, errors, validated_data = self.canonical_integration.validate_collected_data(
-            context.scheme_code, context.collected_data
-        )
-        
-        if not is_valid:
-            # Data validation failed
-            error_msg = "I found some issues with the information provided:\n"
-            for error in errors[:3]:  # Show first 3 errors
-                error_msg += f"• {error}\n"
-            error_msg += "\nPlease provide correct information for these fields."
-            return error_msg
-        
-        # Data is valid, proceed with eligibility check
-        context.stage = ConversationStage.ELIGIBILITY_CHECK
-        
-        # Format collected data for display
-        formatted_data = self._format_collected_data(context.collected_data)
-        
-        prompt = f"Thank you! I have collected all the required information for {scheme_info['scheme_name']}.\n\n"
-        prompt += f"COLLECTED DATA:\n{formatted_data}\n\n"
-        prompt += "I'm now checking your eligibility for this scheme. This may take a moment..."
-        
-        # Store validated data for eligibility checking
-        context.collected_data = validated_data
-        
-        return prompt
     
     def _initialize_data_extractors(self) -> Dict[str, callable]:
         """Initialize field-specific data extractors"""
@@ -441,13 +323,13 @@ class DynamicPromptEngine:
         # Simple location extraction - in production, use NER or location APIs
         return {"location": user_input.strip()}
     
-    def _generic_data_extraction_canonical(
+    def _generic_data_extraction(
         self, 
         user_input: str, 
         field_name: str, 
         field_metadata: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """Generic data extraction based on canonical field metadata"""
+        """Generic data extraction based on field metadata"""
         
         data_type = field_metadata.get('data_type')
         
@@ -468,21 +350,25 @@ class DynamicPromptEngine:
             elif any(word in user_lower for word in ['no', 'false', 'dont', "don't"]):
                 return {field_name: False}
         
-        elif data_type == 'enum':
-            values = field_metadata.get('values', [])
-            user_lower = user_input.lower()
-            for value in values:
-                if value.lower() in user_lower:
-                    return {field_name: value}
-        
         else:  # string or other
             return {field_name: user_input.strip()}
         
         return None
     
-    def _format_field_request_canonical(self, scheme_code: str, field_name: str) -> str:
-        """Format field request using canonical data"""
-        field_metadata = self.canonical_integration.get_field_metadata(scheme_code, field_name)
+    def _format_benefits_summary(self, scheme: GovernmentScheme) -> str:
+        """Format benefits for display"""
+        benefits = []
+        for benefit in scheme.benefits:
+            if benefit.amount:
+                benefits.append(f"{benefit.description} (₹{benefit.amount:,.0f})")
+            else:
+                benefits.append(benefit.description)
+        
+        return "; ".join(benefits[:3])  # Limit to first 3 benefits
+    
+    def _format_field_request(self, scheme: GovernmentScheme, field_name: str) -> str:
+        """Format field request with context"""
+        field_metadata = self.scheme_parser.get_field_metadata(scheme.code, field_name)
         
         if field_metadata:
             return f"{field_name.replace('_', ' ').title()}: {field_metadata['description']}"
@@ -499,3 +385,67 @@ class DynamicPromptEngine:
             formatted.append(f"- {key.replace('_', ' ').title()}: {value}")
         
         return "\n".join(formatted)
+    
+    def _format_missing_fields(self, missing_fields: List[str], scheme: GovernmentScheme) -> str:
+        """Format missing fields for display"""
+        formatted = []
+        for field in missing_fields:
+            field_metadata = self.scheme_parser.get_field_metadata(scheme.code, field)
+            description = field_metadata.get('description', '') if field_metadata else ''
+            formatted.append(f"- {field.replace('_', ' ').title()}: {description}")
+        
+        return "\n".join(formatted)
+    
+    def _get_field_example(self, field_name: str, field_metadata: Optional[Dict[str, Any]]) -> str:
+        """Get example format for a field"""
+        examples = {
+            "age": "Example: 35 years old, or just '35'",
+            "annual_income": "Example: Rs. 50,000 or 50000 rupees",
+            "land_size": "Example: 2.5 acres or 1 hectare",
+            "gender": "Example: Male or Female",
+            "caste": "Example: SC, ST, OBC, or General"
+        }
+        
+        return examples.get(field_name, "Please provide clear information")
+    
+    def _format_eligible_result(self, scheme: GovernmentScheme, result: EligibilityResult) -> str:
+        """Format eligible result details"""
+        details = [f"Congratulations! You qualify for {scheme.name}."]
+        
+        # Add benefits
+        details.append("\nBENEFITS YOU'LL RECEIVE:")
+        for benefit in scheme.benefits:
+            if benefit.amount:
+                details.append(f"• {benefit.description}: ₹{benefit.amount:,.0f} {benefit.frequency or ''}")
+            else:
+                details.append(f"• {benefit.description}")
+        
+        # Add documents needed
+        if scheme.documents:
+            details.append("\nREQUIRED DOCUMENTS:")
+            for doc in scheme.documents:
+                details.append(f"• {doc}")
+        
+        # Add application modes
+        if scheme.application_modes:
+            details.append(f"\nAPPLICATION METHODS: {', '.join(scheme.application_modes)}")
+        
+        return "\n".join(details)
+    
+    def _format_ineligible_result(self, scheme: GovernmentScheme, result: EligibilityResult) -> str:
+        """Format ineligible result details"""
+        details = [f"Unfortunately, you don't currently qualify for {scheme.name}."]
+        
+        # Add reasons
+        if result.recommendations:
+            details.append("\nREASONS:")
+            for reason in result.recommendations[:3]:  # Limit to top 3
+                details.append(f"• {reason}")
+        
+        # Add improvement suggestions
+        details.append(f"\nYour eligibility score: {result.score}%")
+        
+        if result.score > 70:
+            details.append("You're close to qualifying! Consider addressing the issues mentioned above.")
+        
+        return "\n".join(details)

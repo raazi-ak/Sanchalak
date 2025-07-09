@@ -2,18 +2,9 @@ version: "1.0"
 last_updated: "2025-07-01"
 schemes:
   - code: "PMKISAN"
-    file: "pm_kisan_enhanced.yaml"
+    file: "pm_kisan_standardized.yaml"
     status: "active"
     category: "agriculture"
-    canonical_integration: true
-  - code: "MGNREGA"
-    file: "mgnrega_standardized.yaml"
-    status: "active"
-    category: "rural_development"
-  - code: "PMAY_URBAN"
-    file: "pmay_urban_standardized.yaml"
-    status: "active"
-    category: "social_welfare"
 categories:
   - agriculture
   - rural_development
