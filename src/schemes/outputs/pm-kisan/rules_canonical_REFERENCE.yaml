@@ -1,0 +1,433 @@
+schemes:
+- id: '"PM-KISAN_001"'
+  name: '"PM-KISAN"'
+  code: '"PM-KISAN"'
+  ministry: '"Ministry of Agriculture and Farmers Welfare"'
+  launched_on: '"2019-02-24"'
+  description: '"Pm-Kisan is a Central Sector Scheme providing income support to all
+    landholding farmers'' families in the country, having cultivable land."'
+  metadata:
+    language: '"English"'
+    source_url: '"https://pmkisan.gov.in/Documents/RevisedPM-KISANOperationalGuidelines(English).pdf"'
+    last_updated: '"2020-03-29"'
+    version: '"Revised as on 29.03.2020"'
+    document_type: '"Operational Guidelines"'
+    region_coverage: '"All India"'
+    implementing_agency: '"Department of Agriculture, Cooperation & Farmers Welfare
+      (DAC&FW)"'
+    grievance_redressal: true
+  data_model:
+    farmer_fields:
+      # Required fields
+      aadhaar_number:
+        type: "string"
+        required: true
+        description: "Aadhaar number as unique identifier"
+      farmer_id:
+        type: "string"
+        required: true
+        description: "Auto-generated farmer ID (defaults to aadhaar_number)"
+      name:
+        type: "string"
+        required: true
+        description: "Farmer's full name"
+      
+      # Personal Information
+      age:
+        type: "integer"
+        required: false
+        description: "Age in years"
+      gender:
+        type: "string"
+        required: false
+        description: "Gender (male/female/other)"
+      phone_number:
+        type: "string"
+        required: false
+        description: "Contact phone number"
+      family_size:
+        type: "integer"
+        required: false
+        description: "Total family size"
+      dependents:
+        type: "integer"
+        required: false
+        description: "Number of dependents"
+      
+      # Location Information
+      state:
+        type: "string"
+        required: false
+        description: "State name"
+      district:
+        type: "string"
+        required: false
+        description: "District name"
+      village:
+        type: "string"
+        required: false
+        description: "Village name"
+      pincode:
+        type: "string"
+        required: false
+        description: "PIN code"
+      
+      # Agricultural Information
+      land_size_acres:
+        type: "float"
+        required: false
+        description: "Land size in acres"
+      land_ownership:
+        type: "string"
+        required: false
+        description: "Type of land ownership (owned/leased/sharecropping/joint/unknown)"
+      crops:
+        type: "array"
+        required: false
+        description: "List of crops grown"
+      farming_equipment:
+        type: "array"
+        required: false
+        description: "List of farming equipment"
+      irrigation_type:
+        type: "string"
+        required: false
+        description: "Type of irrigation"
+      
+      # Financial Information
+      annual_income:
+        type: "float"
+        required: false
+        description: "Annual income in rupees"
+      bank_account:
+        type: "boolean"
+        required: false
+        description: "Has bank account"
+      has_kisan_credit_card:
+        type: "boolean"
+        required: false
+        description: "Has Kisan Credit Card"
+      
+      # PM-KISAN Specific Fields
+      aadhaar_linked:
+        type: "boolean"
+        required: false
+        description: "Aadhaar linked to bank account"
+      category:
+        type: "string"
+        required: false
+        description: "Category (SC/ST/General/Minority/BPL)"
+      family_definition:
+        type: "string"
+        required: false
+        description: "Family definition"
+      region:
+        type: "string"
+        required: false
+        description: "Region for special provisions"
+      land_owner:
+        type: "boolean"
+        required: false
+        description: "Is land owner"
+      date_of_land_ownership:
+        type: "string"
+        required: false
+        description: "Date of land ownership"
+      sub_district_block:
+        type: "string"
+        required: false
+        description: "Sub-district block"
+      
+      # Family Members (for Prolog family_member/4 facts)
+      family_members:
+        type: "array"
+        required: false
+        description: "List of family members with relation, name, age, gender"
+        items:
+          type: "object"
+          properties:
+            relation:
+              type: "string"
+              description: "Relation (wife/husband/son/daughter/father/mother/brother/sister)"
+            name:
+              type: "string"
+              description: "Family member name"
+            age:
+              type: "integer"
+              description: "Age in years"
+            gender:
+              type: "string"
+              description: "Gender (male/female)"
+      
+      # Scheme-agnostic exclusions
+      exclusions:
+        type: "object"
+        required: false
+        description: "Scheme-agnostic exclusion fields"
+        properties:
+          institutional_land_holder:
+            type: "boolean"
+            description: "Is institutional land holder"
+          is_constitutional_post_holder:
+            type: "boolean"
+            description: "Is constitutional post holder"
+          is_political_office_holder:
+            type: "boolean"
+            description: "Is minister/MP/MLA/Mayor/District Panchayat Chairperson"
+          is_government_employee:
+            type: "boolean"
+            description: "Is government officer/employee"
+          government_post:
+            type: "string"
+            description: "Government post/designation"
+          is_pensioner:
+            type: "boolean"
+            description: "Is pensioner"
+          monthly_pension:
+            type: "float"
+            description: "Monthly pension amount"
+          is_income_tax_payer:
+            type: "boolean"
+            description: "Is income tax payer"
+          is_professional:
+            type: "boolean"
+            description: "Is professional (Doctor/Engineer/Lawyer/CA/Architect)"
+          is_nri:
+            type: "boolean"
+            description: "Is NRI"
+      
+      # Legacy compatibility fields
+      contact:
+        type: "string"
+        required: false
+        description: "Contact information"
+      land_size:
+        type: "float"
+        required: false
+        description: "Land size (legacy field)"
+      location:
+        type: "string"
+        required: false
+        description: "Location string (legacy field)"
+      
+      # Processing metadata
+      status:
+        type: "string"
+        required: false
+        description: "Processing status"
+      created_at:
+        type: "string"
+        required: false
+        description: "Creation timestamp"
+      updated_at:
+        type: "string"
+        required: false
+        description: "Last update timestamp"
+  eligibility:
+    rules:
+    - field: '"land_owner"'
+      operator: '"=="'
+      value: true
+      data_type: '"boolean"'
+      description: '"Must be a landholding farmer family as per land records of the
+        State/UT"'
+    - field: '"date_of_land_ownership"'
+      operator: '"<="'
+      value: '"2019-02-01"'
+      data_type: '"date"'
+      description: '"Land ownership as on 01.02.2019 is required for eligibility"'
+    - field: '"aadhaar_linked"'
+      operator: '"=="'
+      value: true
+      data_type: '"boolean"'
+      description: '"Aadhaar number must be provided"'
+    - field: '"bank_account"'
+      operator: '"=="'
+      value: true
+      data_type: '"boolean"'
+      description: '"Must have a valid bank account for Direct Benefit Transfer"'
+    - field: '"category"'
+      operator: '"in"'
+      value:
+      - SC
+      - ST
+      - General
+      - Minority
+      - BPL
+      data_type: '"string"'
+      description: '"Category information to be captured for all beneficiaries"'
+    - field: '"family_definition"'
+      operator: '"=="'
+      value: '"Husband, wife, and minor children"'
+      data_type: '"string"'
+      description: '"Family is defined as husband, wife, and minor children owning
+        cultivable land"'
+    - field: '"region"'
+      operator: '"in"'
+      value:
+      - North East
+      - Jharkhand
+      - Manipur
+      - Nagaland
+      data_type: '"string"'
+      description: '"Special provisions apply for North East, Jharkhand, Manipur,
+        and Nagaland (see special_provisions)"'
+    logic: '"ALL"'
+    required_criteria:
+    - Landholding farmer family as per land records
+    - Aadhaar number
+    - Bank account details
+    - Name, Age, Gender, Category, Mobile Number
+    exclusion_criteria:
+    - All Institutional Land holders
+    - Families with members who are or were holders of constitutional posts
+    - Former/present Ministers, MPs, MLAs, Mayors, District Panchayat Chairpersons
+    - Serving/retired officers and employees of Central/State Government (except Group
+      D/MTS)
+    - Pensioners with monthly pension >= Rs.10,000 (except Group D/MTS)
+    - Income tax payers in last assessment year
+    - Professionals (Doctors, Engineers, Lawyers, CAs, Architects) practicing and
+      registered
+    - NRIs as per Income Tax Act, 1961
+    exclusions:
+    - name: exclusion_1
+      description: All Institutional Land holders
+      required: true
+      conditions:
+        - field: institutional_land_holder
+          operator: equals
+          value: true
+    - name: exclusion_2
+      description: Families with members who are or were holders of constitutional posts
+      required: true
+      conditions:
+        - field: is_constitutional_post_holder
+          operator: equals
+          value: true
+    - name: exclusion_3
+      description: Former/present Ministers, MPs, MLAs, Mayors, District Panchayat Chairpersons
+      required: true
+      conditions:
+        - field: is_political_office_holder
+          operator: equals
+          value: true
+    - name: exclusion_4
+      description: Serving/retired officers and employees of Central/State Government (except Group D/MTS)
+      required: true
+      conditions:
+        - field: is_government_employee
+          operator: equals
+          value: true
+        - field: government_post
+          operator: not_in
+          value: ["Group D", "MTS", "Multi Tasking Staff"]
+    - name: exclusion_5
+      description: Pensioners with monthly pension >= Rs.10,000 (except Group D/MTS)
+      required: true
+      conditions:
+        - field: is_pensioner
+          operator: equals
+          value: true
+        - field: monthly_pension
+          operator: greater_than_or_equal
+          value: 10000
+    - name: exclusion_6
+      description: Income tax payers in last assessment year
+      required: true
+      conditions:
+        - field: is_income_tax_payer
+          operator: equals
+          value: true
+    - name: exclusion_7
+      description: Professionals (Doctors, Engineers, Lawyers, CAs, Architects) practicing and registered
+      required: true
+      conditions:
+        - field: is_professional
+          operator: equals
+          value: true
+    - name: exclusion_8
+      description: NRIs as per Income Tax Act, 1961
+      required: true
+      conditions:
+        - field: is_nri
+          operator: equals
+          value: true
+  exclusion_criteria:
+  - All Institutional Land holders
+  - Families with members who are or were holders of constitutional posts
+  - Former/present Ministers, MPs, MLAs, Mayors, District Panchayat Chairpersons
+  - Serving/retired officers and employees of Central/State Government (except Group
+    D/MTS)
+  - Pensioners with monthly pension >= Rs.10,000 (except Group D/MTS)
+  - Income tax payers in last assessment year
+  - Professionals (Doctors, Engineers, Lawyers, CAs, Architects) practicing and registered
+  - NRIs as per Income Tax Act, 1961
+  documents:
+  - Aadhaar Card
+  - Bank Account Details
+  - Category Certificate (if applicable)
+  - Voter ID/Driving Licence/NREGA Job Card (alternate IDs)
+  - Mobile Number (for SMS alerts)
+  - Address Proof
+  benefits:
+  - type: '"Financial Assistance"'
+    description: '"Annual income support for agricultural inputs and domestic needs"'
+    amount: 6000
+    frequency: '"yearly"'
+    coverage_details: '"Rs 2000 in three equal installments per year, directly transferred
+      to bank accounts"'
+    payment_mode: '"Direct Benefit Transfer (DBT)"'
+    currency: '"INR"'
+    beneficiary_type: '"Landholding farmer family"'
+  application_modes:
+  - State/UT Government upload on PM-Kisan Portal
+  - Village/district-wise list upload
+  - Fresh entry/registration on portal
+  - Correction window for authorized users
+  monitoring:
+    claim_settlement_target: null
+    participating_entities:
+    - State/UT Governments
+    - Central Government
+    instalment_tracking: null
+    grievance_redressal: true
+    pmu_setup: true
+    review_mechanism:
+    - National Level Review Committee (headed by Cabinet Secretary)
+    - State and District Level Review/Monitoring Committees
+    transparency_measures:
+    - null
+  special_provisions:
+  - region: '"North East States"'
+    description: '"In North Eastern States, where land ownership rights are community-based
+      and it may not be possible to assess the quantum of landholder farmers, an alternate
+      implementation mechanism for eligibility will be developed and approved by a
+      Committee of Union Ministers and State Chief Ministers or their representatives,
+      based on proposals by the concerned North Eastern States."'
+  - region: '"Manipur"'
+    description: '"For identification of bona fide beneficiaries under PM-Kisan Scheme
+      in Manipur, a certificate issued by the Village authority (Chairman/Chief) authorizing
+      any tribal family to cultivate a piece of land may be accepted. Such certification
+      must be authenticated by the concerned sub-divisional officers."'
+  - region: '"Nagaland"'
+    description: '"For community-owned cultivable land in Nagaland under permanent
+      cultivation, a certificate issued by the village council/authority/village chieftain
+      regarding land holding, duly verified by the administrative head of the circle/sub-division
+      and countersigned by the Deputy Commissioner of the District, shall suffice.
+      For Jhum land (as per Section–2(7) of the Nagaland Jhum Land Act, 1970), identification
+      is based on certification by the village council/chief/head, verified and countersigned
+      as above, and the beneficiary must be included in the state''s Agriculture Census
+      of 2015-16."'
+  - region: '"Jharkhand"'
+    description: '"In Jharkhand, the farmer must submit a ''Vanshavali (Lineage)''
+      linked to the entry of land record comprising their ancestor''s name, giving
+      a chart of successor. This lineage chart is submitted before the Gram Sabha
+      for objections, then verified by village/circle revenue officials and countersigned
+      by the District revenue authority. Names are uploaded to the PM-Kisan portal
+      after verification and subject to exclusion criteria."'
+  notes: '"The Pm-Kisan scheme is implemented through an Aadhaar-linked electronic
+    database. The list of beneficiaries is valid for one year and is subject to revision
+    in case of changes in land records. Administrative charges are provided to States/UTs
+    for implementation. Project Monitoring Units (PMUs) are set up at Central and
+    State/UT levels. All special provisions and exceptions are detailed in the ''special_provisions''
+    section for full transparency and downstream logic."'

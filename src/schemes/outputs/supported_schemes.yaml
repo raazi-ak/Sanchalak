@@ -1,0 +1,120 @@
+# Canonical Government Schemes Registry
+# This file serves as the definitive directory for all supported government schemes
+# ONLY schemes with canonical YAML in src/schemes/outputs/ are included
+
+version: "3.0"
+last_updated: "2025-07-04"
+description: "Registry of canonical government schemes with enhanced data models and MCP tool support"
+
+# Active Canonical Schemes
+schemes:
+  - code: "PM-KISAN"
+    name: "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)"
+    ministry: "Ministry of Agriculture and Farmers Welfare"
+    category: "agriculture"
+    status: "active"
+    
+    # Canonical Data Structure
+    canonical:
+      folder: "src/schemes/outputs/pm-kisan/"
+      main_file: "rules_canonical_ENHANCED.yaml"
+      description: "Complete enhanced canonical YAML with field definitions, validation rules, and Prolog facts"
+      data_sections: ["basic_info", "location", "land", "agriculture", "family", "financial", "identity", "employment", "special_provisions"]
+      total_fields: 43
+      required_fields: 18
+      mcp_support: true
+    
+    # Generated Artifacts (Auto-generated from canonical YAML)
+    generated_files:
+      pydantic_models: "rules_canonical_ENHANCED_pydantic_models.py"
+      prolog_rules: "rules_canonical_ENHANCED_intelligent.pl"
+      reference_prolog: "REFERENCE_prolog_system.pl"
+      reference_experta: "REFERENCE_experta_system.py"
+      reference_yaml: "rules_canonical_REFERENCE.yaml"
+    
+    # Source Documentation
+    source_data:
+      extraction_output: "raw.json"
+      documentation: "pdfs/"
+      web_sources: "html_pages/"
+    
+    # MCP Tools Available
+    mcp_tools:
+      - "list_available_schemes"
+      - "get_scheme_details" 
+      - "get_field_definitions"
+      - "generate_consent_request"
+      - "validate_collected_data"
+      - "get_field_prompt_examples"
+
+# System Configuration
+system_config:
+  # Primary Directory Structure
+  canonical_schemes_root: "src/schemes/outputs/"
+  scheme_folder_pattern: "{scheme-code}/"
+  canonical_file_pattern: "*canonical*ENHANCED*.yaml"
+  fallback_file_pattern: "*canonical*.yaml"
+  
+  # File Naming Standards
+  naming_conventions:
+    canonical_main: "rules_canonical_ENHANCED.yaml"
+    pydantic_models: "rules_canonical_ENHANCED_pydantic_models.py"
+    prolog_rules: "rules_canonical_ENHANCED_intelligent.pl"
+    reference_prefix: "REFERENCE_"
+    source_data: "raw.json"
+  
+  # MCP Tools Integration
+  mcp_integration:
+    parser_class: "CanonicalSchemeParser"
+    tools_class: "CanonicalSchemeTools"
+    auto_discovery: true
+    validation_enabled: true
+
+# Discovery Instructions for LLMs
+llm_instructions:
+  primary_discovery: "Use get_schemes_registry() to see all available canonical schemes"
+  scheme_details: "Use get_scheme_details(scheme_code) for complete field metadata"
+  data_collection: "Use get_field_definitions(scheme_code) to understand data requirements"
+  consent_workflow: "Use generate_consent_request(scheme_code) before data collection"
+  validation: "Use validate_collected_data(scheme_code, data) to verify collected information"
+  
+  # Important Notes
+  data_source_authority: "src/schemes/outputs/ is the ONLY authoritative source for scheme data"
+  deprecated_sources: "Ignore any references to schemabot, legacy schemas, or alternative locations"
+  
+# Status Definitions
+status_definitions:
+  active: "Canonical YAML exists with full MCP tool support and enhanced data model"
+  development: "Canonical YAML in progress, may have incomplete data model"
+  deprecated: "No longer supported or maintained"
+
+# Scheme Categories
+categories:
+  agriculture: "Agricultural schemes, farmer support, and rural income programs"
+  rural_development: "Rural employment, infrastructure, and development programs"
+  social_welfare: "Housing, healthcare, education, and social benefit programs"
+  financial_inclusion: "Banking, credit, and financial access programs"
+
+# Development Roadmap
+roadmap:
+  next_schemes:
+    - code: "MGNREGA"
+      priority: "high"
+      status: "planned"
+      description: "Rural employment guarantee scheme"
+    - code: "PMAY-URBAN"
+      priority: "medium" 
+      status: "planned"
+      description: "Urban housing scheme"
+    - code: "PMJDY"
+      priority: "low"
+      status: "planned"
+      description: "Financial inclusion scheme"
+
+# System Statistics
+statistics:
+  total_canonical_schemes: 1
+  active_schemes: 1
+  total_fields_across_schemes: 43
+  schemes_with_mcp_support: 1
+  last_canonical_update: "2025-07-04"
