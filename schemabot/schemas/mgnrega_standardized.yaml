@@ -1,0 +1,69 @@
+schemes:
+- id: MGNREGA_001
+  name: Mahatma Gandhi National Rural Employment Guarantee Act
+  code: MGNREGA
+  ministry: Ministry of Rural Development
+  launched_on: '2005-02-02'
+  description: The Mahatma Gandhi National Rural Employment Guarantee Act (MGNREGA) is an Indian labour law and social security measure that aims to guarantee the 'right to work'. It provides a legal guarantee for one hundred days of employment in every financial year to adult members of any rural household willing to do public work-related unskilled manual work.
+  metadata:
+    category: employment
+    disbursement: wage_payment
+    version: "1.0.0"
+    status: active
+  eligibility:
+    rules:
+    - rule_id: mgn_001
+      field: age
+      operator: ">="
+      value: 18
+      data_type: number
+      description: Must be 18 years or above
+    - rule_id: mgn_002
+      field: location
+      operator: "=="
+      value: rural
+      data_type: string
+      description: Must be from rural area
+    - rule_id: mgn_003
+      field: government_employee
+      operator: "=="
+      value: false
+      data_type: boolean
+      description: Exclusion for government employees
+    - rule_id: mgn_004
+      field: willing_to_work
+      operator: "=="
+      value: true
+      data_type: boolean
+      description: Must be willing to do unskilled manual work
+    logic: ALL
+    required_criteria:
+    - Must be willing to do unskilled manual work
+    - Should apply for work through proper channels
+    exclusion_criteria:
+    - Urban residents
+    - Government employees
+    - Below 18 years of age
+  benefits:
+  - type: Employment Guarantee
+    description: Guaranteed 100 days of employment per financial year
+    amount: 26400
+    frequency: daily
+    coverage_details: Daily wages for unskilled manual work
+  documents:
+  - Bank Account Details
+  - Aadhaar Card
+  - Residence Proof
+  - Job Card
+  application_modes:
+  - Gram Panchayat
+  - Online Portal
+  - Mobile App
+  monitoring:
+    claim_settlement_target: Wage payment within 15 days
+    participating_entities:
+    - Gram Panchayats
+    - Block Offices
+    - District Collectors
+    - Banks
+  notes: MGNREGA is one of the largest work guarantee programmes in the world. The primary objective of the scheme is to guarantee one hundred days of employment in every financial year to adult members of any rural household willing to do public work-related unskilled manual work.

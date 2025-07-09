@@ -1,0 +1,38 @@
+code: "PMKISAN"
+name: "PM-KISAN Samman Nidhi"
+description: "Income support scheme for farmers"
+category: "agriculture"
+ministry: "Ministry of Agriculture & Farmers Welfare"
+launch_date: "2019-02-24"
+status: "active"
+languages:
+  - "en"
+  - "hi"
+eligibility:
+  logic: "ALL"
+  rules:
+    - rule_id: "pmk_001"
+      field: "is_farmer"
+      operator: "equals"
+      value: true
+      data_type: "boolean"
+      description: "Must be a farmer"
+    - rule_id: "pmk_002"
+      field: "land_size"
+      operator: "greater_than"
+      value: 0
+      data_type: "float"
+      description: "Must own agricultural land"
+    - rule_id: "pmk_003"
+      field: "government_employee"
+      operator: "equals"
+      value: false
+      data_type: "boolean"
+      description: "Must not be a government employee"
+benefits:
+  - "₹6,000 per year in three installments"
+  - "Direct benefit transfer to bank account"
+documents_required:
+  - "Aadhaar card"
+  - "Land ownership documents"
+  - "Bank account details"

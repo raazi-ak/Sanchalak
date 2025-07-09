@@ -1,4 +1,5 @@
 
+
 # Virtual Environment
 dev_venv/
 venv/
@@ -395,3 +396,9 @@ packer_cache/
 # Local development
 .local/
 local.env
+.san
+
+*.env
+
+
+
