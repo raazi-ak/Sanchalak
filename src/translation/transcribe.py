@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 from config import get_settings
 from models import AudioProcessingResponse, LanguageCode, ProcessingStatus
-from utils.logger import get_logger
+from common.utils.logger import get_logger
 
 load_dotenv()
 settings = get_settings()

@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict
 
 # Fixed imports - separate the model from the manager
-from api.models.conversation import ConversationContext, MessageRole
-from core.eligibility.checker import EligibilityChecker
-from api.dependencies import get_current_user, get_metrics_collector
+from src.schemabot.api.models.conversation import ConversationContext, MessageRole
+from src.schemabot.core.eligibility.checker import EligibilityChecker
+from src.schemabot.api.dependencies import get_current_user, get_metrics_collector
 
 # Define missing request/response models
 class StartConversationRequest(BaseModel):

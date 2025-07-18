@@ -7,7 +7,7 @@ import asyncio
 
 from config import get_settings
 from models import AZURE_LANGUAGE_VOICE_MAPPING, ProcessingStatus, TextToSpeechResponse
-from utils.logger import get_logger
+from common.utils.logger import get_logger
 
 settings = get_settings()
 logger = get_logger(__name__)

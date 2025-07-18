@@ -16,8 +16,8 @@ import sys
 import os
 
 # Import canonical modules from their current location in core
-from core.schemes.canonical_parser import CanonicalSchemeParser
-from core.schemes.canonical_models import CanonicalScheme, FieldDefinition, ConsentRequest
+from common.schemes.canonical_parser import CanonicalSchemeParser
+from common.schemes.canonical_models import CanonicalScheme, FieldDefinition, ConsentRequest
 
 logger = logging.getLogger(__name__)
 

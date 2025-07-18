@@ -16,7 +16,7 @@ from typing import List
 import yaml
 from pydantic import ValidationError
 
-from models import Scheme, SchemeRegistry          # already present
+from src.schemabot.core.scheme.models import Scheme, SchemeRegistry
 
 class SchemeValidationError(Exception):
     """Raised when a scheme file fails validation."""

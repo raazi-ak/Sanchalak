@@ -24,12 +24,48 @@ from fastapi.openapi.utils import get_openapi
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import redis.asyncio as redis
 
-from app.config import get_settings
-from api.routes import health, schemes, conversations, eligibility
-from core.scheme.parser import SchemeParser
-from core.llm.gemma_client import GemmaClient
+from src.schemabot.app.config import get_settings
+from src.schemabot.api.routes import health, schemes, conversations, eligibility
+from src.schemabot.core.scheme.parser import SchemeParser
+from src.schemabot.core.scheme.efr_integration import EFRSchemeParser
+from src.schemabot.core.prompts.enhanced_engine import EnhancedPromptEngine
+from src.schemabot.core.llm.gemma_client import GemmaClient
+
+# Import middleware and utilities (these may need to be created or imported from correct locations)
+try:
+    from src.schemabot.app.middleware import (
+        SecurityHeadersMiddleware, 
+        RateLimitMiddleware, 
+        RequestLoggingMiddleware
+    )
+    from src.schemabot.app.utils import get_redis_client, setup_logging
+except ImportError:
+    # Fallback imports or create stubs
+    from fastapi import Request
+    import logging
+    
+    # Stub classes for missing middleware
+    class SecurityHeadersMiddleware:
+        def __init__(self, app):
+            self.app = app
+    
+    class RateLimitMiddleware:
+        def __init__(self, app, requests_per_minute=None, redis_client=None):
+            self.app = app
+    
+    class RequestLoggingMiddleware:
+        def __init__(self, app):
+            self.app = app
+    
+    # Stub functions for missing utilities
+    async def get_redis_client():
+        return None
+    
+    def setup_logging(level=None, format_type=None):
+        logging.basicConfig(level=level or logging.INFO)
 
 # Initialize structured logging
+logger = structlog.get_logger()
 
 # Global settings
 settings = get_settings()
@@ -60,6 +96,7 @@ class SanchalakApp:
         self.app: FastAPI = None
         self.redis_client: redis.Redis = None
         self.scheme_parser: SchemeParser = None
+        self.enhanced_prompt_engine: EnhancedPromptEngine = None
         self.llm_client: GemmaClient = None
         self._startup_time = time.time()
 
@@ -71,11 +108,23 @@ class SanchalakApp:
             self.redis_client = await get_redis_client()
             await self.redis_client.ping()
 
-            # Initialize scheme parser
-            self.scheme_parser = SchemeParser(
-                schemes_directory=settings.schemes.schemes_directory,
-                registry_file=settings.schemes.registry_file
-            )
+            # Initialize scheme parser (choose based on configuration)
+            if settings.schemes.use_efr_integration:
+                logger.info("Using EFR database integration for schemes")
+                self.scheme_parser = EFRSchemeParser(
+                    efr_api_url=settings.schemes.efr_api_url
+                )
+                # Initialize enhanced prompt engine
+                self.enhanced_prompt_engine = EnhancedPromptEngine(
+                    efr_api_url=settings.schemes.efr_api_url
+                )
+            else:
+                logger.info("Using local YAML files for schemes")
+                self.scheme_parser = SchemeParser(
+                    schemes_directory=settings.schemes.schemes_directory,
+                    registry_file=settings.schemes.registry_file
+                )
+                
             await self.scheme_parser.load_schemes()
 
             # Initialize LLM client

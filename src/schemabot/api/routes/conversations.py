@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict
 
 # Import models and dependencies
-from core.prompts.context import ConversationContext
-from core.eligibility.checker import EligibilityChecker
-from api.dependencies import get_current_user, get_metrics_collector
+from src.schemabot.core.prompts.context import ConversationContext, MessageRole
+from src.schemabot.core.prompts.enhanced_engine import EnhancedPromptEngine
+from src.schemabot.core.eligibility.checker import EligibilityChecker
+from src.schemabot.api.dependencies import get_current_user, get_metrics_collector, get_cache_manager
+from src.schemabot.app.config import get_settings
 
 # Define missing request/response models
 class StartConversationRequest(BaseModel):
@@ -62,7 +64,8 @@ class EndConversationResponse(BaseModel):
     eligibility_result: Optional[Dict[str, Any]] = None
 
 # Initialize core services
-context_manager = ConversationContext()
+settings = get_settings()
+enhanced_prompt_engine = EnhancedPromptEngine(efr_api_url=settings.schemes.efr_api_url)
 eligibility_checker = EligibilityChecker()
 
 # Initialize router
@@ -81,13 +84,22 @@ async def start_conversation(
     Start a new conversation for a specific scheme and language.
     """
     try:
-        # Create conversation context
-        conversation = ConversationContext(
-            scheme_code=request.scheme_code,
-            language=request.language,
-            user_id=current_user.user_id if hasattr(current_user, 'user_id') else 'anonymous',
-            created_at=datetime.now(timezone.utc)
-        )
+        # Generate initial prompt using enhanced prompt engine
+        initial_prompt, conversation = await enhanced_prompt_engine.generate_initial_prompt(request.scheme_code)
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Scheme {request.scheme_code} not found or not available"
+            )
+        
+        # Set additional context properties
+        conversation.language = request.language
+        conversation.user_id = current_user.user_id if hasattr(current_user, 'user_id') else 'anonymous'
+        conversation.created_at = datetime.now(timezone.utc)
+        
+        # Add the initial assistant message
+        conversation.add_message(MessageRole.ASSISTANT, initial_prompt)
 
         # Persist conversation to cache (or DB)
         await cache_manager.set(f"conversation:{conversation.id}", conversation, ttl=86400)
@@ -127,8 +139,8 @@ async def send_message(
         # Add user message
         conversation.add_message(MessageRole.USER, request.message)
 
-        # Generate assistant response using LLM via context manager
-        assistant_reply = await context_manager.generate_reply(conversation)
+        # Generate assistant response using enhanced prompt engine
+        assistant_reply = await enhanced_prompt_engine.generate_followup_prompt(conversation, request.message)
 
         # Add assistant message
         conversation.add_message(MessageRole.ASSISTANT, assistant_reply)

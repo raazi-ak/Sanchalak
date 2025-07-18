@@ -52,6 +52,11 @@ class SchemeConfig(BaseModel):
     supported_languages: List[str] = Field(default=["hi", "en", "bn", "te", "ta"])
     default_language: str = Field(default="hi")
     cache_ttl: int = Field(default=1800, ge=300, le=7200)
+    # Add EFR integration settings
+    use_efr_integration: bool = Field(default=True, description="Use EFR database as source of truth")
+    efr_api_url: str = Field(default="http://localhost:8001", description="EFR database API URL")
+    efr_connection_timeout: int = Field(default=10, description="EFR API connection timeout in seconds")
+    efr_retry_attempts: int = Field(default=3, description="Number of retry attempts for EFR API calls")
 
 
 class SecurityConfig(BaseModel):

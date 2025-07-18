@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from datetime import datetime, timezone
 
-from api.models.requests import EligibilityCheckRequest, BulkEligibilityRequest
-from api.models.responses import EligibilityResponse, BulkEligibilityResponse
-from core.eligibility.checker import EligibilityChecker
-from core.utils.logger import get_logger
-from core.utils.monitoring import get_metrics_collector
+from src.schemabot.api.models.requests import EligibilityCheckRequest, BulkEligibilityRequest
+from src.schemabot.api.models.responses import EligibilityResponse, BulkEligibilityResponse
+from src.schemabot.core.eligibility.checker import EligibilityChecker
+from src.schemabot.core.utils.logger import get_logger
+from src.schemabot.core.utils.monitoring import get_metrics_collector
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/eligibility", tags=["eligibility"])

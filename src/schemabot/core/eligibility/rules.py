@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Union, Optional
 from datetime import datetime, date
 import structlog
 from decimal import Decimal, InvalidOperation
-from core.scheme.models import EligibilityRule, Operator, DataType
+from src.schemabot.core.scheme.models import EligibilityRule, Operator, DataType
 
 logger = structlog.get_logger(__name__)
 

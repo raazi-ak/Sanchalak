@@ -9,15 +9,15 @@ import yaml
 from datetime import datetime, timezone
 
 # Fixed imports - use the actual model names from your models.py
-from core.scheme.models import GovernmentScheme, Metadata, Monitoring
-from core.scheme.parser import SchemeParser
-from core.scheme.validitor import SchemeValidator
-from api.models.requests import (
+from src.schemabot.core.scheme.models import GovernmentScheme, Metadata, Monitoring
+from src.schemabot.core.scheme.parser import SchemeParser
+from src.schemabot.core.scheme.validitor import SchemeValidator
+from src.schemabot.api.models.requests import (
     CreateSchemeRequest, 
     UpdateSchemeRequest, 
     ValidateSchemeRequest
 )
-from api.models.responses import (
+from src.schemabot.api.models.responses import (
     SchemeResponse,
     BaseResponse, 
     ValidationResponse

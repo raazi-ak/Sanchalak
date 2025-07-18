@@ -10,7 +10,7 @@ This module handles the complete pipeline from transcript to EFR storage:
 
 # Only import modules that actually exist
 try:
-    from .data_extractor import DataExtractor
+    from .data_extractor import DataExtractor, EnhancedDataExtractor
 except ImportError:
     pass
 
@@ -26,6 +26,7 @@ except ImportError:
 
 __all__ = [
     'DataExtractor',
+    'EnhancedDataExtractor',
     'EFRToPrologMapper',
     'ClarificationGenerator'
 ] 
