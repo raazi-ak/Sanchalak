@@ -1255,6 +1255,15 @@ Only return the JSON array, no other text."""
         for i, member in enumerate(state.family_members):
             required_fields = ["name", "relation", "age", "gender"]
             missing_fields = [field for field in required_fields if field not in member or not member[field]]
+            
+            # Auto-infer gender from relation if possible
+            if "gender" in missing_fields and member.get("relation"):
+                inferred_gender = self._infer_gender_from_relation(member["relation"])
+                if inferred_gender:
+                    member["gender"] = inferred_gender
+                    missing_fields.remove("gender")
+                    print(f"🔍 DEBUG: Auto-inferred gender '{inferred_gender}' from relation '{member['relation']}' during incomplete check")
+            
             if missing_fields:
                 return {"index": i, "member": member, "missing_fields": missing_fields}
         return None
@@ -1263,6 +1272,19 @@ Only return the JSON array, no other text."""
         """Handle incomplete family member by asking for missing details"""
         member = incomplete_member["member"]
         missing_fields = incomplete_member["missing_fields"]
+        
+        # Auto-infer gender from relation if relation is available but gender is missing
+        if "gender" in missing_fields and member.get("relation"):
+            inferred_gender = self._infer_gender_from_relation(member["relation"])
+            if inferred_gender:
+                member["gender"] = inferred_gender
+                missing_fields.remove("gender")
+                print(f"🔍 DEBUG: Auto-inferred gender '{inferred_gender}' from relation '{member['relation']}' for incomplete member")
+        
+        # If no more missing fields after inference, member is complete
+        if not missing_fields:
+            state.response = f"✅ Complete! Added family member: {member['name']} ({member['relation']}, {member['age']} years, {member['gender']}). Do you have another family member to add?"
+            return state
         
         if state.user_input and state.user_input.strip():
             # Try to fill in missing field
@@ -1273,6 +1295,14 @@ Only return the JSON array, no other text."""
             if validation_result.get("is_valid", False):
                 # Update the member with the new field
                 member[missing_field] = validation_result.get("extracted_value")
+                
+                # Auto-infer gender if relation was just added
+                if missing_field == "relation" and "gender" in missing_fields:
+                    inferred_gender = self._infer_gender_from_relation(member["relation"])
+                    if inferred_gender:
+                        member["gender"] = inferred_gender
+                        missing_fields.remove("gender")
+                        print(f"🔍 DEBUG: Auto-inferred gender '{inferred_gender}' after relation '{member['relation']}' was added")
                 
                 # Check if still missing fields
                 remaining_missing = [field for field in ["name", "relation", "age", "gender"] if field not in member or not member[field]]
@@ -1291,6 +1321,21 @@ Only return the JSON array, no other text."""
             state.response = f"I need more details about {member_desc}. What is their {missing_field}?"
         
         return state
+
+    def _infer_gender_from_relation(self, relation: str) -> str:
+        """Infer gender from family relation"""
+        relation = relation.lower().strip()
+        gender_map = {
+            "son": "male",
+            "father": "male", 
+            "brother": "male",
+            "husband": "male",
+            "daughter": "female",
+            "mother": "female",
+            "sister": "female", 
+            "wife": "female"
+        }
+        return gender_map.get(relation, None)
 
     async def _validate_family_input_with_retries(self, user_input: str, state: ConversationState) -> dict:
         """Validate family member input with retries"""
@@ -1352,6 +1397,13 @@ Return ONLY a JSON object:
                                     break
                                 else:
                                     member["relation"] = member["relation"].lower()  # Normalize
+                                    
+                                    # Auto-infer gender from relation if gender is missing
+                                    if not member.get("gender"):
+                                        inferred_gender = self._infer_gender_from_relation(member["relation"])
+                                        if inferred_gender:
+                                            member["gender"] = inferred_gender
+                                            print(f"🔍 DEBUG: Auto-inferred gender '{inferred_gender}' from relation '{member['relation']}'")
                             
                             # Validate gender if provided
                             if "gender" in member and member["gender"]:
@@ -1603,18 +1655,40 @@ Return ONLY a JSON object:
         return "END"
 
     def _family_done(self, state: ConversationState) -> str:
-        # Check if user said no to family members or we have collected family members
-        family_count = len(state.family_members)
+        # Check if user said no to family members
         response_str = str(state.response) if state.response else ""
         has_no_family_response = "No family members to add" in response_str
-        print(f"🔍 DEBUG: Family done check - family_count: {family_count}, has_no_family_response: {has_no_family_response}, response: {response_str}")
         
-        if has_no_family_response or family_count > 0:
-            print(f"🔍 DEBUG: Family done - transitioning to EXCLUSION_CRITERIA")
+        # Check if all family members are complete (have all required fields)
+        incomplete_members = []
+        for i, member in enumerate(state.family_members):
+            required_fields = ["name", "relation", "age", "gender"]
+            missing_fields = [field for field in required_fields if field not in member or not member[field]]
+            if missing_fields:
+                incomplete_members.append({"index": i, "member": member, "missing_fields": missing_fields})
+        
+        family_count = len(state.family_members)
+        print(f"🔍 DEBUG: Family done check - family_count: {family_count}, incomplete_members: {len(incomplete_members)}, has_no_family_response: {has_no_family_response}")
+        
+        # Only transition to exclusions if:
+        # 1. User explicitly said no family members, OR
+        # 2. We have complete family members (no incomplete ones) AND user confirmed they're done adding more
+        if has_no_family_response:
+            print(f"🔍 DEBUG: Family done - user said no family members, transitioning to EXCLUSION_CRITERIA")
             return "EXCLUSION_CRITERIA"
+        elif family_count > 0 and len(incomplete_members) == 0:
+            # All family members are complete, but check if user is still adding more
+            # Look for responses that indicate they want to add more vs they're done
+            adding_more_indicators = ["Do you have another family member", "Do you have any more family members"]
+            if any(indicator in response_str for indicator in adding_more_indicators):
+                print(f"🔍 DEBUG: Family complete but still asking for more - returning END")
+                return "END"  # Still asking if they want to add more
+            else:
+                print(f"🔍 DEBUG: Family done - all members complete and not asking for more, transitioning to EXCLUSION_CRITERIA")
+                return "EXCLUSION_CRITERIA"
         else:
-            print(f"🔍 DEBUG: Family not done - returning END")
-            return "END"  # Still collecting family members
+            print(f"🔍 DEBUG: Family not done - incomplete members or no members yet, returning END")
+            return "END"  # Still collecting or completing family members
 
     def _special_done(self, state: ConversationState) -> str:
         missing_specials = [f for f in self.special_provision_fields if f not in state.special_provisions]

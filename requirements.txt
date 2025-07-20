@@ -1,83 +1,275 @@
 # Sanchalak - Government Scheme Eligibility System
-# Core dependencies for the complete pipeline
+# Comprehensive requirements file generated from development environment
 
-# Web Framework and API
-fastapi>=0.115.0
-uvicorn[standard]>=0.27.0
-pydantic>=2.0.0
+# Core Web Framework and API
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+starlette==0.27.0
+asgiref==3.8.1
+python-multipart==0.0.20
 
-# Frontend
-streamlit>=1.46.0
-streamlit-webrtc>=0.47.0
+# Data Validation and Models
+pydantic==2.11.7
+pydantic-settings==2.10.1
+pydantic_core==2.33.2
+dydantic==0.0.8
+marshmallow==3.26.1
 
-# Database
-pymongo>=4.0.0
-redis>=5.0.0
+# Database and ORM
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9
+pymongo==4.13.2
+redis==5.0.1
 
 # HTTP and Networking
-requests>=2.32.0
-httpx>=0.25.0
+requests==2.32.4
+httpx==0.25.2
+httpcore==1.0.9
+httplib2==0.22.0
+httptools==0.6.4
+aiohttp==3.12.13
+aiohappyeyeballs==2.6.1
+aioice==0.10.1
+aiortc==1.13.0
+aiosignal==1.4.0
+websockets==15.0.1
 
-# Data Processing
-numpy>=2.3.0
-pandas>=2.3.0
-pyarrow>=20.0.0
-
-# Audio Processing
-pydub>=0.25.0
-av>=10.0.0
-
-# Configuration and Environment
-python-dotenv>=1.0.0
-toml>=0.10.0
-
-# Logging and Monitoring
-structlog>=23.0.0
-prometheus-client>=0.19.0
-
-# YAML and JSON Processing
-pyyaml>=6.0
-jsonschema>=4.24.0
+# Data Processing and Analysis
+numpy==2.3.1
+pandas==2.3.0
+pyarrow==20.0.0
+scipy==1.16.0
+scikit-learn==1.7.0
 
 # Machine Learning and AI
-torch>=2.0.0
-transformers>=4.35.0
-experta>=1.9.0
+torch==2.7.1
+transformers==4.53.0
+accelerate==1.8.1
+sentence-transformers==5.0.0
+tokenizers==0.21.2
+safetensors==0.5.3
+experta==1.9.4
 
-# Prolog Integration (optional)
-pyswip>=0.2.10
+# Language Models and NLP
+langchain==0.3.26
+langchain-anthropic==0.3.17
+langchain-community==0.3.27
+langchain-core==0.3.68
+langchain-experimental==0.3.4
+langchain-openai==0.3.27
+langchain-text-splitters==0.3.8
+langgraph==0.5.2
+langgraph-checkpoint==2.1.0
+langgraph-prebuilt==0.5.2
+langgraph-sdk==0.1.72
+langmem==0.0.28
+langsmith==0.4.5
+kor==3.0.0
 
-# System Monitoring
-psutil>=5.9.0
-GPUtil>=1.4.0
+# AI/ML Services
+anthropic==0.57.1
+openai==1.95.1
+google-generativeai==0.8.5
+google-ai-generativelanguage==0.6.15
+google-api-python-client==2.174.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-api-core==2.25.1
+googleapis-common-protos==1.70.0
+google-crc32c==1.7.1
 
-# Web Components
-jinja2>=3.1.0
-tornado>=6.5.0
+# Natural Language Processing
+spacy==3.8.7
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
+blis==1.3.0
+catalogue==2.0.10
+confection==0.1.5
+cymem==2.0.11
+preshed==3.0.10
+murmurhash==1.0.13
+thinc==8.3.6
+wasabi==1.1.3
+srsly==2.5.1
+weasel==0.4.1
 
-# Streamlit Components
-altair>=5.5.0
-pydeck>=0.9.0
+# Audio and Video Processing
+pydub==0.25.1
+av==14.4.0
+pylibsrtp==0.12.0
+streamlit-webrtc==0.63.3
 
-# Utilities
-click>=8.2.0
-blinker>=1.9.0
-tenacity>=9.1.0
-typing-extensions>=4.14.0
-protobuf>=5.29.0
+# Document Processing
+pdf2image==1.17.0
+pdfminer.six==20250506
+pdfplumber==0.11.7
+pypdfium2==4.30.1
+pytesseract==0.3.13
+pillow==11.2.1
+
+# Frontend and UI
+streamlit==1.46.1
+altair==5.5.0
+pydeck==0.9.1
+
+# Configuration and Environment
+python-dotenv==1.0.0
+toml==0.10.2
+pydantic-settings==2.10.1
+
+# Logging and Monitoring
+structlog==23.2.0
+prometheus-client==0.19.0
+sentry-sdk==1.38.0
+
+# YAML and JSON Processing
+pyyaml==6.0.1
+jsonschema==4.19.2
+jsonschema-specifications==2025.4.1
+jsonpatch==1.33
+jsonpointer==3.0.0
+orjson==3.10.18
+ormsgpack==1.10.0
+dataclasses-json==0.6.7
+
+# Prolog Integration
+pyswip==0.3.3
+
+# System Monitoring and Utilities
+psutil==7.0.0
+GPUtil==1.4.0
+watchdog==6.0.0
+watchfiles==1.1.0
+
+# Web Components and Templates
+jinja2==3.1.6
+tornado==6.5.1
+markdown-it-py==3.0.0
+mdurl==0.1.2
+
+# Utilities and Helpers
+click==8.2.1
+blinker==1.9.0
+tenacity==9.1.2
+typing-extensions==4.14.0
+typing-inspect==0.9.0
+typing-inspection==0.4.1
+protobuf==5.29.5
+frozendict==1.2
+frozenlist==1.7.0
+multidict==6.6.3
+yarl==1.20.1
+idna==3.10
+certifi==2025.6.15
+charset-normalizer==3.4.2
+urllib3==2.5.0
+six==1.17.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
 
 # Git Integration
-gitpython>=3.1.0
+gitpython==3.1.44
+gitdb==4.0.12
+smmap==5.0.2
 
 # Testing
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
+pytest==7.4.3
+pytest-asyncio==0.21.1
+iniconfig==2.1.0
+pluggy==1.6.0
 
 # Async Support
-anyio>=4.9.0
+anyio==3.7.1
+sniffio==1.3.1
 
-# Web Scraping (if needed)
-beautifulsoup4>=4.13.0
+# Web Scraping and Parsing
+beautifulsoup4==4.13.4
+soupsieve==2.7
+
+# Additional ML/AI Libraries
+mlx==0.26.1
+mlx-lm==0.25.3
+narwhals==1.45.0
+networkx==3.5
+mpmath==1.3.0
+sympy==1.14.0
+
+# Language Detection and Processing
+langdetect==1.0.9
+langcodes==3.5.0
+language_data==1.3.0
+
+# Caching and Storage
+cachetools==5.5.2
+fsspec==2025.5.1
+cloudpathlib==0.21.1
+smart-open==7.1.0
+
+# Security and Cryptography
+cryptography==45.0.4
+pyOpenSSL==25.1.0
+pycparser==2.22
+cffi==1.17.1
+rsa==4.9.1
+
+# GraphQL
+strawberry-graphql==0.278.0
+graphql-core==3.2.6
+
+# gRPC
+grpcio==1.73.1
+grpcio-status==1.71.2
+
+# Job Processing
+joblib==1.5.1
+threadpoolctl==3.6.0
+
+# Text Processing
+regex==2024.11.6
+tiktoken==0.9.0
+sentencepiece==0.2.0
+
+# Rich Text and Formatting
+rich==14.0.0
+pygments==2.19.2
+
+# HTTP and API Tools
+requests-toolbelt==1.0.0
+uritemplate==4.2.0
+
+# Development and Build Tools
+setuptools==80.9.0
+packaging==24.2
+filelock==3.18.0
+distro==1.9.0
 
 # Additional Dependencies
-pillow>=11.2.0 
+h11==0.16.0
+hf-xet==1.1.5
+httpx-sse==0.4.1
+huggingface-hub==0.33.1
+ifaddr==0.2.0
+jiter==0.10.0
+mako==1.3.10
+marisa-trie==1.2.1
+markupsafe==3.0.2
+mypy_extensions==1.1.0
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
+pyee==13.0.0
+pyparsing==3.2.3
+referencing==0.36.2
+rpds-py==0.26.0
+shellingham==1.5.4
+tqdm==4.67.1
+trustcall==0.0.39
+typer==0.16.0
+uvloop==0.21.0
+xxhash==3.5.0
+zstandard==0.23.0
+
+# Local Development Package
+-e git+https://github.com/raazi-ak/Sanchalak.git@d4a87aa063cadcc4a367d306330bb78f6da547a5#egg=sanchalak 
