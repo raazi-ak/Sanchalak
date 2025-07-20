@@ -54,24 +54,24 @@ class StageProgress:
 
 @strawberry.type
 class ConversationProgress:
-    basic_info: StageProgress
-    family_members: StageProgress
-    exclusion_criteria: StageProgress
-    special_provisions: StageProgress
+    basicInfo: StageProgress
+    familyMembers: StageProgress
+    exclusionCriteria: StageProgress
+    specialProvisions: StageProgress
     
     @strawberry.field
     def overall_percentage(self) -> float:
         total_collected = (
-            self.basic_info.collected + 
-            self.family_members.collected + 
-            self.exclusion_criteria.collected + 
-            self.special_provisions.collected
+            self.basicInfo.collected + 
+            self.familyMembers.collected + 
+            self.exclusionCriteria.collected + 
+            self.specialProvisions.collected
         )
         total_required = (
-            self.basic_info.total + 
-            self.family_members.total + 
-            self.exclusion_criteria.total + 
-            self.special_provisions.total
+            self.basicInfo.total + 
+            self.familyMembers.total + 
+            self.exclusionCriteria.total + 
+            self.specialProvisions.total
         )
         return (total_collected / total_required) * 100 if total_required > 0 else 0
 
@@ -83,21 +83,29 @@ class Message:
     timestamp: datetime
 
 @strawberry.type
+class EligibilityResult:
+    is_eligible: bool
+    confidence_score: float
+    explanation: str
+    details: strawberry.scalars.JSON
+    timestamp: datetime
+
+@strawberry.type
 class FarmerData:
-    basic_info: strawberry.scalars.JSON
-    family_members: strawberry.scalars.JSON
-    exclusion_data: strawberry.scalars.JSON
-    special_provisions: strawberry.scalars.JSON
-    scheme_code: str
-    completed_at: datetime
+    basicInfo: strawberry.scalars.JSON
+    familyMembers: strawberry.scalars.JSON
+    exclusionData: strawberry.scalars.JSON
+    specialProvisions: strawberry.scalars.JSON
+    schemeCode: str
+    completedAt: datetime
 
 @strawberry.type
 class ConversationSession:
     id: str
-    scheme_code: str
+    schemeCode: str
     stage: Stage
-    created_at: datetime
-    updated_at: datetime
+    createdAt: datetime
+    updatedAt: datetime
     
     # Flexible data fetching - client chooses what to include
     @strawberry.field
@@ -116,16 +124,16 @@ class ConversationSession:
         if self.id in sessions:
             state = sessions[self.id]
             return ConversationProgress(
-                basic_info=StageProgress(collected=len(state.collected_data), total=17),
-                family_members=StageProgress(collected=len(state.family_members), total=3),
-                exclusion_criteria=StageProgress(collected=len(state.exclusion_data), total=7),
-                special_provisions=StageProgress(collected=len(state.special_provisions), total=3)
+                basicInfo=StageProgress(collected=len(state.collected_data), total=17),
+                familyMembers=StageProgress(collected=len(state.family_members), total=3),
+                exclusionCriteria=StageProgress(collected=len(state.exclusion_data), total=7),
+                specialProvisions=StageProgress(collected=len(state.special_provisions), total=3)
             )
         return ConversationProgress(
-            basic_info=StageProgress(collected=0, total=17),
-            family_members=StageProgress(collected=0, total=3),
-            exclusion_criteria=StageProgress(collected=0, total=7),
-            special_provisions=StageProgress(collected=0, total=3)
+            basicInfo=StageProgress(collected=0, total=17),
+            familyMembers=StageProgress(collected=0, total=3),
+            exclusionCriteria=StageProgress(collected=0, total=7),
+            specialProvisions=StageProgress(collected=0, total=3)
         )
     
     @strawberry.field
@@ -142,12 +150,12 @@ class ConversationSession:
             state = sessions[self.id]
             if state.stage == ConversationStage.COMPLETED:
                 return FarmerData(
-                    basic_info=state.collected_data,
-                    family_members=state.family_members,
-                    exclusion_data=state.exclusion_data,
-                    special_provisions=state.special_provisions,
-                    scheme_code=self.scheme_code,
-                    completed_at=datetime.now()
+                    basicInfo=state.collected_data,
+                    familyMembers=state.family_members,
+                    exclusionData=state.exclusion_data,
+                    specialProvisions=state.special_provisions,
+                    schemeCode=self.schemeCode,
+                    completedAt=datetime.now()
                 )
         return None
     
@@ -156,18 +164,64 @@ class ConversationSession:
         if self.id in sessions:
             return sessions[self.id].stage == ConversationStage.COMPLETED
         return False
+    
+    @strawberry.field
+    def eligibility_result(self) -> Optional[EligibilityResult]:
+        """Get eligibility result if conversation is complete"""
+        if self.id in sessions:
+            state = sessions[self.id]
+            if state.stage == ConversationStage.COMPLETED:
+                try:
+                    import requests
+                    
+                    # Get farmer ID from collected data
+                    farmer_id = None
+                    for field_name, field_data in state.collected_data.items():
+                        if field_name in ['aadhaar_number', 'farmer_id']:
+                            farmer_id = field_data.value
+                            break
+                    
+                    if not farmer_id:
+                        return None
+                    
+                    # Call the scheme server eligibility endpoint
+                    scheme_server_url = "http://localhost:8002/eligibility/check"
+                    scheme_server_request = {
+                        "scheme_id": self.schemeCode,
+                        "farmer_id": farmer_id
+                    }
+                    
+                    response = requests.post(scheme_server_url, json=scheme_server_request)
+                    if response.status_code == 200:
+                        result = response.json()
+                        return EligibilityResult(
+                            is_eligible=result.get("is_eligible", False),
+                            confidence_score=result.get("confidence_score", 0.8),
+                            explanation=result.get("explanation", "No explanation available"),
+                            details=result.get("details", {}),
+                            timestamp=datetime.now()
+                        )
+                except Exception as e:
+                    print(f"Error getting eligibility result: {e}")
+                    return None
+        return None
 
 # Input Types
 @strawberry.input
 class StartConversationInput:
-    scheme_code: str
+    schemeCode: str
     language: Optional[str] = "en"
 
 @strawberry.input
 class SendMessageInput:
-    session_id: str
+    sessionId: str
     content: str
-    quick_option_id: Optional[int] = None
+    quickOptionId: Optional[int] = None
+
+@strawberry.input
+class CheckEligibilityInput:
+    schemeCode: str
+    farmerId: str
 
 # In-memory storage (same as REST API for now)
 sessions: Dict[str, ConversationState] = {}
@@ -212,7 +266,7 @@ class Mutation:
             engines[session_id] = engine
             
             # Initialize conversation
-            response, updated_state = await engine.initialize_conversation(input.scheme_code)
+            response, updated_state = await engine.initialize_conversation(input.schemeCode)
             sessions[session_id] = updated_state
             
             # Create initial message
@@ -229,10 +283,10 @@ class Mutation:
             # Create session object
             session = ConversationSession(
                 id=session_id,
-                scheme_code=input.scheme_code,
+                schemeCode=input.schemeCode,
                 stage=_stage_to_graphql(updated_state.stage),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                createdAt=datetime.now(),
+                updatedAt=datetime.now()
             )
             
             # Notify subscribers
@@ -246,23 +300,23 @@ class Mutation:
             fallback_message = Message(
                 id=str(uuid.uuid4()),
                 role=MessageRole.ASSISTANT,
-                content=f"Hello! I'm here to help you with your {input.scheme_code.upper()} application. Let's start with your basic information. What's your name?",
+                content=f"Hello! I'm here to help you with your {input.schemeCode.upper()} application. Let's start with your basic information. What's your name?",
                 timestamp=datetime.now()
             )
             conversation_messages[session_id] = [fallback_message]
             
             return ConversationSession(
                 id=session_id,
-                scheme_code=input.scheme_code,
+                schemeCode=input.schemeCode,
                 stage=Stage.BASIC_INFO,
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                createdAt=datetime.now(),
+                updatedAt=datetime.now()
             )
     
     @strawberry.mutation  
     async def send_message(self, input: SendMessageInput) -> Message:
         """Send message and get AI response"""
-        session_id = input.session_id
+        session_id = input.sessionId
         
         # Check if session exists
         if session_id not in sessions or session_id not in engines:
@@ -317,6 +371,52 @@ class Mutation:
             conversation_messages[session_id].append(error_message)
             
             return error_message
+    
+    @strawberry.mutation
+    async def check_eligibility(self, input: CheckEligibilityInput) -> EligibilityResult:
+        """Check eligibility for a farmer using the scheme server"""
+        try:
+            import requests
+            
+            # Call the scheme server eligibility endpoint
+            scheme_server_url = "http://localhost:8002/eligibility/check"
+            
+            scheme_server_request = {
+                "scheme_id": input.schemeCode,
+                "farmer_id": input.farmerId
+            }
+            
+            response = requests.post(scheme_server_url, json=scheme_server_request)
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            return EligibilityResult(
+                is_eligible=result.get("is_eligible", False),
+                confidence_score=result.get("confidence_score", 0.8),
+                explanation=result.get("explanation", "No explanation available"),
+                details=result.get("details", {}),
+                timestamp=datetime.now()
+            )
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Scheme server request error: {e}")
+            return EligibilityResult(
+                is_eligible=False,
+                confidence_score=0.0,
+                explanation="Scheme server unavailable",
+                details={"error": str(e)},
+                timestamp=datetime.now()
+            )
+        except Exception as e:
+            print(f"Eligibility check error: {e}")
+            return EligibilityResult(
+                is_eligible=False,
+                confidence_score=0.0,
+                explanation=f"Error checking eligibility: {str(e)}",
+                details={"error": str(e)},
+                timestamp=datetime.now()
+            )
 
 # Queries  
 @strawberry.type
@@ -331,17 +431,17 @@ class Query:
         state = sessions[session_id]
         return ConversationSession(
             id=session_id,
-            scheme_code="pm-kisan",  # TODO: store scheme_code in session
+            schemeCode="pm-kisan",  # TODO: store schemeCode in session
             stage=_stage_to_graphql(state.stage),
-            created_at=datetime.now(),  # TODO: store actual creation time
-            updated_at=datetime.now()
+            createdAt=datetime.now(),  # TODO: store actual creation time
+            updatedAt=datetime.now()
         )
     
     @strawberry.field
     async def available_schemes(self) -> List[strawberry.scalars.JSON]:
         """Get list of available schemes"""
         return [
-            {"scheme_code": "pm-kisan", "name": "PM-KISAN", "description": "Farmer income support scheme"}
+            {"schemeCode": "pm-kisan", "name": "PM-KISAN", "description": "Farmer income support scheme"}
         ]
 
 # Subscriptions for Real-time Chat

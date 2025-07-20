@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-green: #2E7D32;
+  --secondary-green: #4CAF50;
+  --accent-green: #66BB6A;
+  --light-green: #C8E6C9;
+  --government-blue: #1976D2;
+  --scheme-gold: #FFB300;
+  --earth-brown: #8D6E63;
+  --official-red: #D32F2F;
+}
+
+@layer base {
+  html {
+    font-family: 'Poppins', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-green-50 via-green-100 to-blue-50 min-h-screen;
+  }
+}
+
+@layer components {
+  .agricultural-gradient {
+    background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 50%, #E3F2FD 100%);
+  }
+  
+  .government-gradient {
+    background: linear-gradient(135deg, var(--government-blue) 0%, var(--primary-green) 100%);
+  }
+  
+  .chat-message {
+    @apply rounded-2xl p-4 mb-4 shadow-sm border-l-4 animate-fade-in;
+  }
+  
+  .user-message {
+    @apply bg-gradient-to-r from-blue-50 to-blue-100 border-l-blue-500 ml-8;
+  }
+  
+  .bot-message {
+    @apply bg-gradient-to-r from-green-50 to-green-100 border-l-green-500 mr-8;
+  }
+  
+  .system-message {
+    @apply bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-yellow-500 text-center mx-4;
+  }
+  
+  .control-btn {
+    @apply w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+  
+  .recording-btn {
+    @apply bg-gradient-to-r from-red-500 to-red-600;
+    animation: recording-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .processing-btn {
+    @apply bg-gradient-to-r from-yellow-500 to-orange-500;
+    animation: processing-rotate 2s linear infinite;
+  }
+  
+  .send-btn {
+    @apply bg-gradient-to-r from-green-500 to-green-600;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .animate-recording-pulse {
+    animation: recording-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .animate-processing-rotate {
+    animation: processing-rotate 1s linear infinite;
+  }
+  
+  .fast-transition {
+    @apply transition-all duration-150 ease-out;
+  }
+  
+  .progress-bar {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .message-enter {
+    animation: slideInUp 0.2s ease-out;
+  }
+  
+  .spin-fast {
+    animation: spin 0.5s linear infinite;
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes recording-pulse {
+  0%, 100% { 
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); 
+  }
+  50% { 
+    box-shadow: 0 4px 25px rgba(239, 68, 68, 0.6); 
+  }
+}
+
+@keyframes processing-rotate {
+  from { 
+    transform: rotate(0deg); 
+  }
+  to { 
+    transform: rotate(360deg); 
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

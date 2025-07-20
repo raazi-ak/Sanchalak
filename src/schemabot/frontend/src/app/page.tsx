@@ -153,6 +153,14 @@ interface Progress {
   }
 }
 
+interface EligibilityResult {
+  is_eligible: boolean
+  confidence_score: number
+  explanation: string
+  details: Record<string, any>
+  timestamp: string
+}
+
 export default function Home() {
   const [sessionId, setSessionId] = useState<string>('')
   const [schemes, setSchemes] = useState<Scheme[]>([])
@@ -163,7 +171,7 @@ export default function Home() {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [currentStage, setCurrentStage] = useState('')
   const [isComplete, setIsComplete] = useState(false)
-  const [farmerData, setFarmerData] = useState<Record<string, unknown> | null>(null)
+  const [farmerData, setFarmerData] = useState<(Record<string, unknown> & { eligibility_result?: EligibilityResult }) | null>(null)
 
   useEffect(() => {
     loadSchemes()
@@ -360,7 +368,7 @@ export default function Home() {
                 setFarmerData(null)
               }}
               className="text-gray-500 hover:text-gray-700"
-            >
+          >
               ← Back to Schemes
             </button>
           </div>
@@ -493,19 +501,56 @@ export default function Home() {
               {/* Input */}
               <div className="border-t p-4">
                 {isComplete && farmerData ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-green-800 mb-2">
-                      ✅ Application Complete!
-                    </h3>
-                    <p className="text-green-700 mb-3">
-                      Your {selectedScheme.scheme_name} application has been successfully collected.
-                    </p>
-                    <button 
-                      onClick={() => console.log('Farmer Data:', farmerData)}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-                    >
-                      Download Application Data
-                    </button>
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-green-800 mb-2">
+                        ✅ Application Complete!
+                      </h3>
+                      <p className="text-green-700 mb-3">
+                        Your {selectedScheme.scheme_name} application has been successfully collected.
+                      </p>
+                      <button 
+                        onClick={() => console.log('Farmer Data:', farmerData)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                      >
+                        Download Application Data
+                      </button>
+                    </div>
+                    
+                    {/* Eligibility Result */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                        🎯 Eligibility Check Result
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-blue-700">Status:</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            farmerData.eligibility_result?.is_eligible 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {farmerData.eligibility_result?.is_eligible ? '✅ ELIGIBLE' : '❌ NOT ELIGIBLE'}
+                          </span>
+                        </div>
+                        {farmerData.eligibility_result?.confidence_score && (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-blue-700">Confidence:</span>
+                            <span className="text-sm text-blue-600">
+                              {Math.round(farmerData.eligibility_result.confidence_score * 100)}%
+                            </span>
+                          </div>
+                        )}
+                        {farmerData.eligibility_result?.explanation && (
+                          <div>
+                            <span className="text-sm font-medium text-blue-700">Explanation:</span>
+                            <p className="text-sm text-blue-600 mt-1">
+                              {farmerData.eligibility_result.explanation}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex space-x-4">

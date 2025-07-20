@@ -31,6 +31,7 @@ async def main():
         print("  /skipall - Skip all remaining questions in current stage")
         print("  /skipstage - Skip entire current stage")
         print("  /status - Show current progress")
+        print("  /preview - Preview EFR data format")
         print("  /help - Show this help")
         print("  /exit - Exit the application")
         print("  /restart - Restart the conversation")
@@ -61,8 +62,19 @@ async def main():
                     print(f"📝 **Collected Data:** {len(state.collected_data)} fields")
                     print(f"🚫 **Exclusions:** {len(state.exclusion_data)} answered")
                     continue
+                elif user_input.lower() == "/preview":
+                    if state.stage.value in ["summary", "completed"]:
+                        preview = engine.get_efr_data_preview(state)
+                        print(f"\n📋 **EFR Data Preview:**")
+                        import json
+                        print(json.dumps(preview, indent=2, default=str))
+                    else:
+                        print(f"\n⚠️ **Preview not available yet.** Complete the conversation first to see EFR data format.")
+                    continue
                 elif user_input.lower() == "/restart":
                     print("🔄 Restarting conversation...")
+                    # Clear LLM context before restarting
+                    await engine._clear_llm_context()
                     welcome_msg, state = await engine.initialize_conversation("pm-kisan")
                     print(f"\n{welcome_msg}")
                     continue
@@ -91,12 +103,11 @@ async def main():
                             state.exclusion_data[field] = False
                         state.stage = ConversationStage.SPECIAL_PROVISIONS
                         state.response = "✅ [DEV] Skipped exclusion stage. Moving to special provisions."
-                        # Automatically ask first special provision question if applicable
-                        if engine.special_provision_fields:
-                            missing_specials = [f for f in engine.special_provision_fields if f not in state.special_provisions]
-                            if missing_specials:
-                                target_field = missing_specials[0]
-                                state.response += f"\n\nPlease provide information about {target_field.replace('_', ' ')}."
+                        # Clear user input to trigger LLM-based special provisions flow
+                        state.user_input = ""
+                        # Let the engine handle the special provisions flow with LLM
+                        response, state = await engine.process_user_input("", state)
+                        state.response = response
                     elif state.stage.value == "family_members":
                         state.stage = ConversationStage.EXCLUSION_CRITERIA
                         state.response = "✅ [DEV] Skipped family stage. Moving to exclusions."
@@ -105,8 +116,21 @@ async def main():
                         if first_exclusion_question:
                             state.response += f"\n\n{first_exclusion_question}"
                     elif state.stage.value == "special_provisions":
+                        # Mark as no special provisions and let engine handle completion
+                        state.special_provisions["region_special"] = "none"
+                        state.special_provisions["has_special_certificate"] = False
+                        state.stage = ConversationStage.SUMMARY
+                        state.response = "✅ [DEV] Skipped special provisions. Moving to summary."
+                        # Let the engine handle the summary message
+                        response, state = await engine.process_user_input("", state)
+                        state.response = response
+                    elif state.stage.value == "summary":
+                        # Skip summary and go directly to completion
                         state.stage = ConversationStage.COMPLETED
-                        state.response = "✅ [DEV] Skipped special provisions. Application complete!"
+                        state.response = "✅ [DEV] Skipped summary. Application complete!"
+                        # Let the engine handle the completion message
+                        response, state = await engine.process_user_input("", state)
+                        state.response = response
                     else:
                         state.response = "❌ Cannot skip completed stage."
                     print(f"\n🤖 Assistant: {state.response}")

@@ -147,8 +147,7 @@ class SchemeInfo(BaseModel):
 class EligibilityRequest(BaseModel):
     """Request model for eligibility checking"""
     scheme_id: str
-    farmer_data: Dict[str, Any]
-    farmer_id: Optional[str] = None
+    farmer_id: str
 
 class EligibilityResponse(BaseModel):
     """Response model for eligibility checking"""
@@ -805,38 +804,48 @@ async def get_conversation_config(scheme_code: str):
 
 @app.post("/eligibility/check", response_model=Dict[str, Any])
 async def check_eligibility(request: EligibilityRequest):
-    """Check eligibility for a specific scheme using Prolog rules"""
+    """Check eligibility for a specific scheme using scheme-specific checker"""
     try:
-        if not PROLOG_AVAILABLE:
-            raise HTTPException(
-                status_code=503, 
-                detail="Prolog engine not available. Install pyswip to enable eligibility checking."
-            )
+        # Route to appropriate scheme checker based on scheme_id
+        if request.scheme_id.lower() == "pm-kisan":
+            # Import the PM-KISAN checker
+            from schemes.pm_kisan import PMKisanChecker
+            
+            # Initialize the checker
+            checker = PMKisanChecker()
         
-        # Get Prolog engine for the scheme
-        engine = get_prolog_engine(request.scheme_id)
-        if not engine:
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Scheme '{request.scheme_id}' not found or has no Prolog rules"
-            )
+            # Check eligibility using the farmer ID
+            result = checker.check_farmer(request.farmer_id)
         
-        # Check eligibility
-        is_eligible, explanation, details = engine.check_eligibility(request.farmer_data)
-        
-        return {
+            # Clean up the output for better presentation
+            cleaned_result = {
             "success": True,
             "scheme_id": request.scheme_id,
             "farmer_id": request.farmer_id,
-            "is_eligible": is_eligible,
-            "explanation": explanation,
-            "confidence_score": 0.95 if is_eligible else 0.85,
-            "details": details,
+                "is_eligible": result.get("eligible", False),
+                "explanation": result.get("explanation", "Detailed analysis completed above"),
+                "confidence_score": 0.95 if result.get("eligible", False) else 0.85,
+                "details": {
+                    "farmer_name": result.get("farmer_name", ""),
+                    "facts_generated": result.get("facts_generated", 0),
+                    "analysis_summary": "All requirements met, no exclusions apply, family structure valid, special provisions validated" if result.get("eligible", False) else "Some requirements or exclusions not met"
+                },
             "timestamp": datetime.now(UTC).isoformat()
         }
         
-    except HTTPException:
-        raise
+            return cleaned_result
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Scheme '{request.scheme_id}' not supported for eligibility checking"
+            )
+        
+    except ImportError as e:
+        logger.error(f"Failed to import scheme checker: {e}")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Scheme checker for '{request.scheme_id}' not available."
+        )
     except Exception as e:
         logger.error(f"Error checking eligibility: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to check eligibility: {str(e)}")

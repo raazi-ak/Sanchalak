@@ -18,6 +18,7 @@ from core.scheme.parser import SchemeParser
 from core.eligibility.checker import EligibilityChecker
 from core.prompts.dynamic_engine import DynamicPromptEngine, ConversationContext
 from core.llm.gemma_client import get_gemma_client, gemma_client_lifespan
+from core.conversation.langgraph_engine import SimpleLangGraphEngine
 from api.models import *
 
 # Configure structured logging
@@ -31,12 +32,13 @@ GENERATION_DURATION = Histogram('sanchalak_generation_duration_seconds', 'LLM ge
 scheme_parser = None
 eligibility_checker = None
 prompt_engine = None
+langgraph_engine = None
 conversation_contexts: Dict[str, ConversationContext] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
-    global scheme_parser, eligibility_checker, prompt_engine
+    global scheme_parser, eligibility_checker, prompt_engine, langgraph_engine
     
     logger.info("Starting Sanchalak Backend...")
     
@@ -53,6 +55,11 @@ async def lifespan(app: FastAPI):
         
         # Initialize prompt engine
         prompt_engine = DynamicPromptEngine(scheme_parser, eligibility_checker)
+        
+        # Initialize LangGraph engine
+        langgraph_engine = SimpleLangGraphEngine()
+        await langgraph_engine.initialize("pm-kisan")
+        logger.info("LangGraph engine initialized successfully")
         
         # Initialize Gemma client
         gemma_client = get_gemma_client()
@@ -106,6 +113,9 @@ def get_eligibility_checker() -> EligibilityChecker:
 
 def get_prompt_engine() -> DynamicPromptEngine:
     return prompt_engine
+
+def get_langgraph_engine() -> SimpleLangGraphEngine:
+    return langgraph_engine
 
 # Health and monitoring endpoints
 @app.get("/health")
@@ -383,37 +393,149 @@ async def stream_conversation(
         logger.error(f"Stream conversation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to stream conversation")
 
-# Direct eligibility check endpoint
-@app.post("/eligibility/check", response_model=EligibilityCheckResponse)
-async def check_eligibility(
-    request: EligibilityCheckRequest,
-    checker: EligibilityChecker = Depends(get_eligibility_checker),
-    parser: SchemeParser = Depends(get_scheme_parser)
+# LangGraph conversation endpoints
+@app.post("/langgraph/start", response_model=ConversationStartResponse)
+async def start_langgraph_conversation(
+    request: ConversationStartRequest,
+    langgraph_engine: SimpleLangGraphEngine = Depends(get_langgraph_engine)
 ):
-    """Direct eligibility check with complete farmer data"""
+    """Start a new LangGraph conversation"""
     try:
-        scheme = parser.get_scheme(request.scheme_code)
-        if not scheme:
-            raise HTTPException(status_code=404, detail="Scheme not found")
+        # Initialize conversation with LangGraph
+        response, state = await langgraph_engine.initialize_conversation(request.scheme_code)
         
-        # Perform eligibility check
-        result = checker.check_eligibility(request.farmer_data, scheme)
-        
-        return EligibilityCheckResponse(
+        # Store the state
+        session_id = request.session_id or f"langgraph_{int(time.time())}"
+        conversation_contexts[session_id] = ConversationContext(
+            session_id=session_id,
             scheme_code=request.scheme_code,
-            scheme_name=scheme.name,
-            is_eligible=result.is_eligible,
-            eligibility_score=result.score,
-            passed_rules=result.passed_rules,
-            failed_rules=result.failed_rules,
-            missing_fields=result.missing_fields,
-            recommendations=result.recommendations,
-            benefits=scheme.benefits if result.is_eligible else [],
-            required_documents=scheme.documents if result.is_eligible else []
+            conversation_history=[],
+            collected_data={},
+            stage="initialization"
+        )
+        
+        return ConversationStartResponse(
+            session_id=session_id,
+            response=response,
+            conversation_stage="initialization"
+        )
+        
+    except Exception as e:
+        logger.error(f"Start LangGraph conversation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start LangGraph conversation")
+
+@app.post("/langgraph/chat", response_model=ConversationResponse)
+async def langgraph_chat(
+    request: ConversationContinueRequest,
+    langgraph_engine: SimpleLangGraphEngine = Depends(get_langgraph_engine)
+):
+    """Continue a LangGraph conversation"""
+    try:
+        # Get conversation context
+        context = conversation_contexts.get(request.session_id)
+        if not context:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Create state from context
+        from core.conversation.langgraph_engine import ConversationState
+        state = ConversationState(
+            collected_data=context.collected_data,
+            chat_history=context.conversation_history,
+            user_input=request.user_input
+        )
+        
+        # Process with LangGraph
+        response, updated_state = await langgraph_engine.chat(request.user_input, state)
+        
+        # Update context
+        context.conversation_history = updated_state.chat_history
+        context.collected_data = {k: v.value for k, v in updated_state.collected_data.items()}
+        context.stage = updated_state.stage.value
+        
+        # Check if conversation is complete
+        is_complete = updated_state.stage.value == "completed"
+        
+        # Get eligibility result if complete
+        eligibility_result = None
+        if is_complete:
+            # Call the eligibility endpoint
+            try:
+                import requests
+                scheme_server_url = "http://localhost:8002/eligibility/check"
+                scheme_server_request = {
+                    "scheme_id": context.scheme_code,
+                    "farmer_id": context.collected_data.get("aadhaar_number", "unknown")
+                }
+                
+                eligibility_response = requests.post(scheme_server_url, json=scheme_server_request)
+                if eligibility_response.status_code == 200:
+                    eligibility_data = eligibility_response.json()
+                    eligibility_result = EligibilityResultResponse(
+                        is_eligible=eligibility_data.get("is_eligible", False),
+                        score=eligibility_data.get("confidence_score", 0.8),
+                        passed_rules=[],
+                        failed_rules=[],
+                        missing_fields=[],
+                        recommendations=[eligibility_data.get("explanation", "No explanation available")]
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to get eligibility result: {e}")
+        
+        return ConversationResponse(
+            session_id=request.session_id,
+            response=response,
+            conversation_stage=updated_state.stage.value,
+            collected_data=context.collected_data,
+            eligibility_result=eligibility_result,
+            is_complete=is_complete
         )
         
     except HTTPException:
         raise
+    except Exception as e:
+        logger.error(f"LangGraph chat error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process LangGraph conversation")
+
+# Direct eligibility check endpoint
+@app.post("/eligibility/check", response_model=EligibilityCheckResponse)
+async def check_eligibility(
+    request: EligibilityCheckRequest
+):
+    """Direct eligibility check using scheme server"""
+    try:
+        import requests
+        
+        # Call the scheme server eligibility endpoint
+        scheme_server_url = "http://localhost:8002/eligibility/check"
+        
+        # Convert the request to the scheme server format
+        scheme_server_request = {
+            "scheme_id": request.scheme_code,
+            "farmer_id": request.farmer_data.get("farmer_id", request.farmer_data.get("aadhaar_number", "unknown"))
+        }
+        
+        response = requests.post(scheme_server_url, json=scheme_server_request)
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        # Convert scheme server response to our format
+        return EligibilityCheckResponse(
+            scheme_code=request.scheme_code,
+            scheme_name=request.scheme_code.upper(),
+            is_eligible=result.get("is_eligible", False),
+            eligibility_score=result.get("confidence_score", 0.8),
+            passed_rules=[],  # Not provided by scheme server
+            failed_rules=[],  # Not provided by scheme server
+            missing_fields=[],  # Not provided by scheme server
+            recommendations=[result.get("explanation", "No explanation available")],
+            benefits=[],  # Not provided by scheme server
+            required_documents=[]  # Not provided by scheme server
+        )
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Scheme server request error: {e}")
+        raise HTTPException(status_code=503, detail="Scheme server unavailable")
     except Exception as e:
         logger.error(f"Eligibility check error: {e}")
         raise HTTPException(status_code=500, detail="Failed to check eligibility")

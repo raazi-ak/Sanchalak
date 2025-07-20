@@ -1,15 +1,12 @@
 """
-Canonical Schemes Module
+Schemes Module
 
-Handles loading, parsing, and validation of canonical government scheme data.
+Contains individual scheme implementations and checkers.
 """
 
-from .canonical_parser import CanonicalSchemeParser
-from .canonical_models import CanonicalScheme, FieldDefinition, ConsentRequest
-
-__all__ = [
-    'CanonicalSchemeParser',
-    'CanonicalScheme', 
-    'FieldDefinition',
-    'ConsentRequest'
-]
+# Import individual scheme modules
+try:
+    from .pm_kisan import PMKisanChecker
+    __all__ = ['PMKisanChecker']
+except ImportError:
+    __all__ = []
