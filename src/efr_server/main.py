@@ -53,7 +53,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dir
 
 # Set your API key here (move to env var in prod)
 API_KEY = os.getenv("EFR_API_KEY", "supersecretkey")
-TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
+TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1", "http://localhost:3000", "http://localhost:8001", "http://localhost:8002", "http://localhost:8003"]
 
 # Restrict CORS
 app.add_middleware(

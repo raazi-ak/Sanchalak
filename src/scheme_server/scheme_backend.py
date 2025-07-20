@@ -52,7 +52,7 @@ collection = db[COLLECTION_NAME]
 
 # API key for admin endpoints
 API_KEY = os.getenv("SCHEME_API_KEY", "supersecretkey")
-TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
+TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1", "http://localhost:3000", "http://localhost:8001", "http://localhost:8002", "http://localhost:8003"]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

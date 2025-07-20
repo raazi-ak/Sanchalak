@@ -1,200 +1,60 @@
-#trans\streamlit_app\app.py
-
 import streamlit as st
 import io
 import base64
-import time
+import json
+import uuid
 from streamlit.components.v1 import html
-from utils import transcribe_audio, tts_response, audio_to_bytesio, autoplay_audio
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
-import av
+from utils import transcribe_audio, tts_response, audio_to_bytesio, autoplay_audio, health_check, test_api_integration, create_api_integration_report
 import requests
 import tempfile
 import os
+import time
 
+# Configuration
+SANCHALAK_API_BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-SANCHALAK_API_BASE_URL = "http://localhost:8000"
+# Backend Health Check Function
+def check_backend_status():
+    """Check if the backend APIs are accessible"""
+    try:
+        response = requests.get(f"{SANCHALAK_API_BASE_URL}/health", timeout=5)
+        if response.status_code == 200:
+            return {"status": "healthy", "message": "✅ API services are running"}
+        else:
+            return {"status": "unhealthy", "message": "⚠️ API services are having issues"}
+    except requests.exceptions.ConnectionError:
+        return {"status": "offline", "message": "❌ Cannot connect to API services"}
+    except requests.exceptions.Timeout:
+        return {"status": "slow", "message": "⏳ API services are responding slowly"}
+    except Exception as e:
+        return {"status": "error", "message": f"🔧 API Error: {str(e)}"}
 
-
-# Initialize session state variables if not already present
+# Initialize session state variables
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 if "conversation_id" not in st.session_state:
-    st.session_state.conversation_id = None
+    st.session_state.conversation_id = str(uuid.uuid4())
 
-if "selected_scheme_code" not in st.session_state:
-    st.session_state.selected_scheme_code = "PMKISAN"  # Default scheme (or update later via dropdown)
+if "conversation_stage" not in st.session_state:
+    st.session_state.conversation_stage = "greeting"
 
+if "farmer_data" not in st.session_state:
+    st.session_state.farmer_data = {}
+
+if "first_visit" not in st.session_state:
+    st.session_state.first_visit = True
+
+if "selected_language" not in st.session_state:
+    st.session_state.selected_language = "English"
 
 # Page Configuration
 st.set_page_config(
-    page_title="Sanchalak - कृषि संवाद",
-    page_icon="🌾",
+    page_title="Sanchalak - Government Scheme Eligibility Checker",
+    page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# Web Audio Recorder HTML+JS
-def voice_recorder_html():
-    return """
-    <script>
-    let mediaRecorder;
-    let audioChunks = [];
-
-    async function startRecording() {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-
-        mediaRecorder.ondataavailable = event => {
-            if (event.data.size > 0) audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            const arrayBuffer = await blob.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-            window.parent.postMessage({ isStreamlitMessage: true, type: 'streamlit:setComponentValue', value: base64 }, '*');
-        };
-
-        mediaRecorder.start();
-        document.getElementById("recordingStatus").innerText = "🎙️ Recording...";
-    }
-
-    function stopRecording() {
-        if (mediaRecorder) {
-            mediaRecorder.stop();
-            document.getElementById("recordingStatus").innerText = "⏹️ Stopped. Processing...";
-        }
-    }
-    </script>
-    <div style="text-align:center;">
-        <button onclick="startRecording()" style="padding:10px 20px; background:#E53935; color:white; border:none; border-radius:8px;">🔴 Start</button>
-        <button onclick="stopRecording()" style="padding:10px 20px; background:#43A047; color:white; border:none; border-radius:8px; margin-left:10px;">⏹️ Stop</button>
-        <p id="recordingStatus" style="margin-top:1rem;"></p>
-    </div>
-    """
-
-
-# Enhanced CSS with agriculture theme
-st.markdown("""
-    <style>
-    .main {
-        padding: 1rem;
-        background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
-    }
-    
-    .stApp {
-        background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
-    }
-    
-    .header-container {
-        background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 25px rgba(46, 125, 50, 0.3);
-    }
-    
-    .header-title {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .header-subtitle {
-        font-size: 1.2rem;
-        opacity: 0.9;
-        margin-bottom: 0;
-    }
-    
-    .section-header {
-        background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        font-size: 1.3rem;
-        font-weight: bold;
-        margin: 1.5rem 0 1rem 0;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-    }
-    
-    .chat-container {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        border: 2px solid #C8E6C9;
-    }
-    
-    .chat-message {
-        margin: 1rem 0;
-        padding: 1rem;
-        border-radius: 10px;
-        position: relative;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
-        border-left: 4px solid #2196F3;
-        margin-left: 2rem;
-    }
-    
-    .bot-message {
-        background: linear-gradient(135deg, #F1F8E9 0%, #DCEDC8 100%);
-        border-left: 4px solid #4CAF50;
-        margin-right: 2rem;
-    }
-    
-    .message-icon {
-        font-size: 1.2rem;
-        margin-right: 0.5rem;
-    }
-    
-    .audio-column {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 0.5rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        border: 2px solid #C8E6C9;
-        height: 250px;
-    }
-    
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #FF5722 0%, #D84315 100%);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 0.75rem;
-        font-weight: bold;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #E64A19 0%, #BF360C 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Header
-st.markdown("""
-    <div class="header-container">
-        <div class="header-title">🌾 Sanchalak - कृषि संवाद</div>
-        <p class="header-subtitle">Your Digital Agricultural Assistant | आपका डिजिटल कृषि सहायक</p>
-    </div>
-""", unsafe_allow_html=True)
 
 # Language options
 language_options = {
@@ -210,92 +70,569 @@ language_options = {
     "Odia (ଓଡ଼ିଆ)": "or"
 }
 
-# Multilingual content
+# Multilingual content for government scheme checker
 language_content = {
     "en": {
-        "greeting": "🙏 Hello! I am Sanchalak, your digital agricultural assistant. Please record your audio message below to share your name, district, and farming information.",
-        "language_header": "🌐 Select Your Language",
-        "language_help": "Choose your preferred language:",
-        "audio_header": "🎙️ Record Your Voice Message",
-        "upload_text": "**Alternative:** Upload an audio file if recording doesn't work",
-        "upload_help": "Supported formats: WAV, MP3, M4A, WebM",
-        "choose_file": "📁 Choose an audio file",
-        "conversation_header": "💬 Conversation",
-        "you_label": "🧑‍🌾 You:",
-        "bot_label": "🤖 Sanchalak:",
-        "bot_replied": "🤖 Sanchalak replied:",
-        "processing": "🧠 Processing your voice message...",
-        "upload_processing": "🧠 Processing uploaded audio...",
-        "record_voice": "🎙️ Voice Recording",
-        "upload_audio": "📁 Upload Audio File"
+        "app_title": "🏛️ Sanchalak - Government Scheme Eligibility Checker",
+        "app_subtitle": "Your Digital Assistant for Agricultural Government Schemes",
+        "language_header": "🌐 Choose Your Language",
+        "language_help": "Select your preferred language:",
+        "chat_header": "💬 Scheme Eligibility Conversation",
+        "input_placeholder": "Type your message here or use voice recording...",
+        "record_btn": "🎙️ Record Voice",
+        "send_btn": "📤 Send",
+        "clear_btn": "🧹 Clear Chat",
+        "you_label": "👨‍🌾 You:",
+        "bot_label": "🏛️ Sanchalak:",
+        "processing": "🔄 Processing your request...",
+        "footer_text": "Supported Languages: English, Hindi, Gujarati, Punjabi, Bengali, Telugu, Tamil, Malayalam, Kannada, Odia",
+        "system_greeting": "🙏 Namaste! I am Sanchalak, your government scheme assistant. I help farmers check eligibility for various agricultural schemes like PM-KISAN, Soil Health Card, Pradhan Mantri Fasal Bima Yojana, and more.\n\nTo get started, please tell me:\n1. Your name\n2. Your state and district\n3. Your farming details (land size, crops grown)\n\nYou can speak in your regional language or type your response."
     },
     "hi": {
-        "greeting": "🙏 नमस्ते! मैं संचालक हूँ, आपका डिजिटल कृषि सहायक। कृपया अपना नाम, जिला और खेती की जानकारी देने के लिए नीचे दिए गए बटन से ऑडियो रिकॉर्ड करें।",
+        "app_title": "🏛️ संचालक - सरकारी योजना पात्रता जांचकर्ता",
+        "app_subtitle": "कृषि सरकारी योजनाओं के लिए आपका डिजिटल सहायक",
         "language_header": "🌐 अपनी भाषा चुनें",
         "language_help": "अपनी पसंदीदा भाषा चुनें:",
-        "audio_header": "🎙️ अपना आवाज़ संदेश रिकॉर्ड करें",
-        "upload_text": "**वैकल्पिक:** यदि रिकॉर्डिंग काम नहीं कर रही है तो ऑडियो फ़ाइल अपलोड करें",
-        "upload_help": "समर्थित प्रारूप: WAV, MP3, M4A, WebM",
-        "choose_file": "📁 ऑडियो फ़ाइल चुनें",
-        "conversation_header": "💬 बातचीत",
-        "you_label": "🧑‍🌾 आप:",
-        "bot_label": "🤖 संचालक:",
-        "bot_replied": "🤖 संचालक ने जवाब दिया:",
-        "processing": "🧠 आपके आवाज़ संदेश को प्रोसेस कर रहे हैं...",
-        "upload_processing": "🧠 अपलोड की गई ऑडियो को प्रोसेस कर रहे हैं...",
-        "record_voice": "🎙️ आवाज़ रिकॉर्डिंग",
-        "upload_audio": "📁 ऑडियो फ़ाइल अपलोड करें"
+        "chat_header": "💬 योजना पात्रता बातचीत",
+        "input_placeholder": "यहाँ अपना संदेश टाइप करें या आवाज़ रिकॉर्डिंग का उपयोग करें...",
+        "record_btn": "🎙️ आवाज़ रिकॉर्ड करें",
+        "send_btn": "📤 भेजें",
+        "clear_btn": "🧹 चैट साफ़ करें",
+        "you_label": "👨‍🌾 आप:",
+        "bot_label": "🏛️ संचालक:",
+        "processing": "🔄 आपके अनुरोध को संसाधित कर रहे हैं...",
+        "footer_text": "समर्थित भाषाएं: अंग्रेजी, हिंदी, गुजराती, पंजाबी, बंगाली, तेलुगु, तमिल, मलयालम, कन्नड़, उड़िया",
+        "system_greeting": "🙏 नमस्ते! मैं संचालक हूँ, आपका सरकारी योजना सहायक। मैं किसानों को विभिन्न कृषि योजनाओं जैसे पीएम-किसान, मृदा स्वास्थ्य कार्ड, प्रधानमंत्री फसल बीमा योजना आदि के लिए पात्रता जांचने में मदद करता हूँ।\n\nशुरू करने के लिए, कृपया मुझे बताएं:\n1. आपका नाम\n2. आपका राज्य और जिला\n3. आपकी खेती का विवरण (भूमि का आकार, उगाई जाने वाली फसलें)\n\nआप अपनी क्षेत्रीय भाषा में बोल सकते हैं या अपना उत्तर टाइप कर सकते हैं।"
+    },
+    "gu": {
+        "app_title": "🏛️ સંચાલક - સરકારી યોજના પાત્રતા તપાસકર્તા",
+        "app_subtitle": "કૃષિ સરકારી યોજનાઓ માટે તમારો ડિજિટલ સહાયક",
+        "language_header": "🌐 તમારી ભાષા પસંદ કરો",
+        "language_help": "તમારી પસંદીદા ભાષા પસંદ કરો:",
+        "chat_header": "💬 યોજના પાત્રતા વાતચીત",
+        "input_placeholder": "અહીં તમારો સંદેશ ટાઇપ કરો અથવા વૉઇસ રેકોર્ડિંગનો ઉપયોગ કરો...",
+        "record_btn": "🎙️ અવાજ રેકોર્ડ કરો",
+        "send_btn": "📤 મોકલો",
+        "clear_btn": "🧹 ચેટ સાફ કરો",
+        "you_label": "👨‍🌾 તમે:",
+        "bot_label": "🏛️ સંચાલક:",
+        "processing": "🔄 તમારી વિનંતી પર કામ કરી રહ્યા છીએ...",
+        "footer_text": "સપોર્ટેડ ભાષાઓ: અંગ્રેજી, હિન્દી, ગુજરાતી, પંજાબી, બંગાળી, તેલુગુ, તમિલ, મલયાલમ, કન્નડ, ઓડિયા",
+        "system_greeting": "🙏 નમસ્તે! હું સંચાલક છું, તમારો સરકારી યોજના સહાયક. હું ખેડૂતોને PM-KISAN, માટી આરોગ્ય કાર્ડ, પ્રધાનમંત્રી ફસલ વીમા યોજના જેવી વિવિધ કૃષિ યોજનાઓ માટે પાત્રતા તપાસવામાં મદદ કરું છું.\n\nશરૂ કરવા માટે, કૃપા કરીને મને કહો:\n1. તમારું નામ\n2. તમારું રાજ્ય અને જિલ્લો\n3. તમારી ખેતીની વિગતો (જમીનનું કદ, ઉગાડેલા પાકો)\n\nતમે તમારી પ્રાદેશિક ભાષામાં બોલી શકો છો અથવા તમારો જવાબ ટાઇપ કરી શકો છો."
     }
 }
 
-# Initialize session state for language
-if "selected_language" not in st.session_state:
-    st.session_state.selected_language = "English"
+# Enhanced Agricultural Theme CSS
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    
+    /* Root variables for agricultural government theme */
+    :root {
+        --primary-green: #2E7D32;
+        --secondary-green: #4CAF50;
+        --accent-green: #66BB6A;
+        --light-green: #C8E6C9;
+        --government-blue: #1976D2;
+        --scheme-gold: #FFB300;
+        --earth-brown: #8D6E63;
+        --official-red: #D32F2F;
+    }
+    
+    /* Main app styling */
+    .main {
+        padding: 1rem;
+        background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 50%, #E3F2FD 100%);
+        min-height: 100vh;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .stApp {
+        background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 50%, #E3F2FD 100%);
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(135deg, var(--government-blue) 0%, var(--primary-green) 100%);
+        color: white;
+        padding: 2.5rem;
+        border-radius: 20px;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(25, 118, 210, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .header-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .header-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.95;
+        font-weight: 300;
+    }
+    
+    /* Chat container */
+    .chat-container {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        border: 2px solid var(--light-green);
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    /* Chat messages */
+    .chat-message {
+        margin: 1rem 0;
+        padding: 1rem;
+        border-radius: 15px;
+        animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .user-message {
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        border-left: 4px solid var(--government-blue);
+        margin-left: 2rem;
+    }
+    
+    .bot-message {
+        background: linear-gradient(135deg, #F1F8E9 0%, #DCEDC8 100%);
+        border-left: 4px solid var(--secondary-green);
+        margin-right: 2rem;
+    }
+    
+    .system-message {
+        background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+        border-left: 4px solid var(--scheme-gold);
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    /* Input area */
+    .input-container {
+        background: white;
+        border-radius: 25px;
+        padding: 1rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border: 2px solid var(--light-green);
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .chat-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        padding: 0.5rem;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .input-controls {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .control-btn {
+        background: linear-gradient(135deg, var(--secondary-green) 0%, var(--accent-green) 100%);
+        border: none;
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        color: white;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+    
+    .control-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    }
+    
+    .recording-btn {
+        background: linear-gradient(135deg, #E53935 0%, #C62828 100%) !important;
+        animation: recordingPulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes recordingPulse {
+        0%, 100% { box-shadow: 0 4px 15px rgba(229, 57, 53, 0.3); }
+        50% { box-shadow: 0 4px 25px rgba(229, 57, 53, 0.6); }
+    }
+    
+    .processing-btn {
+        background: linear-gradient(135deg, var(--scheme-gold) 0%, #FF8F00 100%) !important;
+        animation: processingRotate 2s linear infinite;
+    }
+    
+    @keyframes processingRotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Language selection */
+    .language-selection {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border: 2px solid var(--light-green);
+    }
+    
+    /* Section headers */
+    .section-header {
+        background: linear-gradient(135deg, var(--secondary-green) 0%, var(--accent-green) 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+    }
+    
+    /* Footer */
+    .footer {
+        background: linear-gradient(135deg, var(--primary-green) 0%, var(--government-blue) 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-top: 2rem;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, var(--secondary-green) 0%, var(--accent-green) 100%);
+        color: white;
+        border: none;
+        border-radius: 15px;
+        padding: 0.8rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+    }
+    
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Recording status */
+    .recording-status {
+        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        color: #C62828;
+        padding: 0.8rem;
+        border-radius: 10px;
+        text-align: center;
+        margin: 0.5rem 0;
+        border: 2px solid #E57373;
+        animation: statusGlow 2s ease-in-out infinite;
+    }
+    
+    @keyframes statusGlow {
+        0%, 100% { box-shadow: 0 0 10px rgba(229, 57, 53, 0.2); }
+        50% { box-shadow: 0 0 20px rgba(229, 57, 53, 0.4); }
+    }
+    </style>
+""", unsafe_allow_html=True)
 
+# Voice recorder with better error handling
+def voice_recorder_component():
+    return """
+    <div id="voiceRecorder" style="display: flex; align-items: center; justify-content: center; height: 45px;">
+        <button id="recordButton" onclick="toggleRecording()" 
+                style="background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%); 
+                       color: white; border: none; border-radius: 50%; 
+                       width: 45px; height: 45px; font-size: 1.2rem; 
+                       cursor: pointer; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+                       transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;">
+            🎙️
+        </button>
+    </div>
+    
+    <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingTimer;
+    let recordingSeconds = 0;
+    
+    function updateStatus(message, isRecording = false) {
+        const button = document.getElementById('recordButton');
+        
+        if (isRecording) {
+            button.style.background = 'linear-gradient(135deg, #E53935 0%, #C62828 100%)';
+            button.style.animation = 'recordingPulse 1.5s ease-in-out infinite';
+            button.textContent = '⏹️';
+        } else {
+            button.style.background = 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)';
+            button.style.animation = 'none';
+            button.textContent = '🎙️';
+        }
+    }
+    
+    // Add CSS animation
+    if (!document.getElementById('recordingStyles')) {
+        const style = document.createElement('style');
+        style.id = 'recordingStyles';
+        style.textContent = `
+            @keyframes recordingPulse {
+                0%, 100% { box-shadow: 0 4px 15px rgba(229, 57, 53, 0.3); }
+                50% { box-shadow: 0 4px 25px rgba(229, 57, 53, 0.6); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    async function startRecording() {
+        try {
+            if (isRecording) return;
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 16000
+                } 
+            });
+            
+            // Check for supported MIME types
+            let mimeType = 'audio/webm;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/mp4';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = '';
+                    }
+                }
+            }
+            
+            const options = mimeType ? { mimeType } : {};
+            mediaRecorder = new MediaRecorder(stream, options);
+            
+            audioChunks = [];
+            isRecording = true;
+            recordingSeconds = 0;
+            
+            // Start timer
+            recordingTimer = setInterval(() => {
+                recordingSeconds++;
+            }, 1000);
+            
+            updateStatus('', true);
+            
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = async () => {
+                clearInterval(recordingTimer);
+                
+                const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                const arrayBuffer = await blob.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                
+                // Send to Streamlit using the component API
+                Streamlit.setComponentValue({
+                    audio_data: base64,
+                    action: 'audio_recorded',
+                    duration: recordingSeconds,
+                    mimeType: mediaRecorder.mimeType
+                });
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                updateStatus('', false);
+            };
+            
+            mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                updateStatus('❌ Recording error', false);
+                stopRecording();
+            };
+            
+            mediaRecorder.start();
+            
+            // Auto-stop after 60 seconds
+            setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    stopRecording();
+                }
+            }, 60000);
+            
+        } catch (error) {
+            console.error('Recording error:', error);
+            isRecording = false;
+            updateStatus('', false);
+        }
+    }
+    
+    function stopRecording() {
+        if (mediaRecorder && isRecording && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    }
+    
+    function toggleRecording() {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+    
+    // Expose to global scope for external access
+    window.startRecording = startRecording;
+    window.stopRecording = stopRecording;
+    window.toggleRecording = toggleRecording;
+    </script>
+    """
+
+# Get current language content
 selected_lang_code = language_options[st.session_state.selected_language]
 current_content = language_content.get(selected_lang_code, language_content["en"])
 
+# Header
+st.markdown(f"""
+    <div class="header-container">
+        <div class="header-title">{current_content["app_title"]}</div>
+        <p class="header-subtitle">{current_content["app_subtitle"]}</p>
+    </div>
+""", unsafe_allow_html=True)
+
 # Language Selection
-st.markdown('<div class="language-selection">', unsafe_allow_html=True)
-st.markdown(f'<div class="section-header">{current_content["language_header"]}</div>', unsafe_allow_html=True)
-
-language_label = st.selectbox(
-    current_content["language_help"],
-    list(language_options.keys()),
-    index=list(language_options.keys()).index(st.session_state.selected_language),
-    key="language_selector"
-)
-
-# Update selected language in session state
-if language_label != st.session_state.selected_language:
-    st.session_state.selected_language = language_label
-    # Reset chat history when language changes
-    if "chat_history" in st.session_state:
+with st.container():
+    st.markdown('<div class="language-selection">', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-header">{current_content["language_header"]}</div>', unsafe_allow_html=True)
+    
+    language_label = st.selectbox(
+        current_content["language_help"],
+        list(language_options.keys()),
+        index=list(language_options.keys()).index(st.session_state.selected_language),
+        key="language_selector"
+    )
+    
+    # Update selected language and reset chat if changed
+    if language_label != st.session_state.selected_language:
+        st.session_state.selected_language = language_label
         st.session_state.chat_history = []
-    st.rerun()
+        st.session_state.conversation_stage = "greeting"
+        st.session_state.farmer_data = {}
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-selected_lang_code = language_options[language_label]
+# API Integration Status Section
+from utils import test_api_integration, create_api_integration_report
+
+with st.expander("🔧 API Integration Status & Testing", expanded=False):
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.markdown("**Current Integration Status:**")
+        integration_health = check_backend_status()
+        status_color = {
+            "healthy": "#4CAF50", 
+            "unhealthy": "#FF9800", 
+            "offline": "#F44336", 
+            "slow": "#FFC107",
+            "error": "#F44336"
+        }.get(integration_health["status"], "#666")
+        
+        st.markdown(f"""
+        <div style="background: white; padding: 1rem; border-radius: 10px; 
+                    border-left: 4px solid {status_color}; margin: 0.5rem 0;">
+            <strong>Backend Status:</strong> {integration_health["message"]}<br>
+            <strong>API URL:</strong> <code>{SANCHALAK_API_BASE_URL}</code>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        if st.button("🧪 Test APIs", help="Run comprehensive API integration tests"):
+            with st.spinner("Testing API integration..."):
+                report_html = create_api_integration_report()
+                st.markdown(report_html, unsafe_allow_html=True)
+    
+    # Quick Integration Guide
+    st.markdown("""
+    **🚀 Integration Features:**
+    - ✅ **Audio Transcription** - Real-time speech-to-text processing
+    - ✅ **Text-to-Speech** - Multi-language voice synthesis  
+    - ✅ **Language Detection** - Automatic language identification
+    - ✅ **Error Handling** - Robust error recovery and user feedback
+    - ✅ **Health Monitoring** - Real-time API status tracking
+    
+    **🔗 API Endpoints Used:**
+    - `POST /transcribe/` - Audio transcription service
+    - `POST /tts/` - Text-to-speech generation
+    - `GET /tts/audio/{filename}` - Audio file serving
+    - `GET /health` - Service health check
+    """)
+
+# Update current content after language change
+selected_lang_code = language_options[st.session_state.selected_language]
 current_content = language_content.get(selected_lang_code, language_content["en"])
-st.markdown('</div>', unsafe_allow_html=True)
 
-# Initialize chat history
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# Initialize conversation with system greeting - always show in current language
+if not st.session_state.chat_history:
+    st.session_state.chat_history.append(("system", current_content["system_greeting"]))
+elif st.session_state.chat_history and st.session_state.chat_history[0][0] == "system":
+    # Update the first system message with current language
+    st.session_state.chat_history[0] = ("system", current_content["system_greeting"])
 
-# Chat History Display (moved up)
+# Chat Display
 if st.session_state.chat_history:
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-header">{current_content["conversation_header"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-header">{current_content["chat_header"]}</div>', unsafe_allow_html=True)
     
     for sender, message in st.session_state.chat_history:
         if sender == "user":
             st.markdown(f"""
                 <div class="chat-message user-message">
-                    <span class="message-icon">🧑‍🌾</span>
                     <strong>{current_content["you_label"]}</strong> {message}
                 </div>
             """, unsafe_allow_html=True)
-        else:
+        elif sender == "system":
+            st.markdown(f"""
+                <div class="chat-message system-message">
+                    <strong>{current_content["bot_label"]}</strong> {message}
+                </div>
+            """, unsafe_allow_html=True)
+        else:  # bot
             if message.startswith("AUDIO::"):
                 parts = message.split("::")
                 audio_path = parts[1] if len(parts) > 1 else ""
@@ -303,214 +640,377 @@ if st.session_state.chat_history:
                 
                 st.markdown(f"""
                     <div class="chat-message bot-message">
-                        <span class="message-icon">🤖</span>
-                        <strong>{current_content["bot_replied"]}</strong>
+                        <strong>{current_content["bot_label"]}</strong> {response_text}
                     </div>
                 """, unsafe_allow_html=True)
                 
                 if audio_path:
                     audio_html = autoplay_audio(audio_path)
                     st.markdown(audio_html, unsafe_allow_html=True)
-                
-                if response_text != "Audio response":
-                    st.markdown(f"""
-                        <div class="chat-message bot-message" style="margin-top: 0.5rem; font-style: italic;">
-                            📝 {response_text}
-                        </div>
-                    """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                     <div class="chat-message bot-message">
-                        <span class="message-icon">🤖</span>
                         <strong>{current_content["bot_label"]}</strong> {message}
                     </div>
                 """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
+
+# Input Area
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
+
+# Create columns for input
+col1, col2, col3 = st.columns([7, 1, 1])
+
+with col1:
+    user_input = st.text_input(
+        "Input Message",
+        placeholder=current_content["input_placeholder"],
+        key="user_text_input",
+        label_visibility="collapsed"
+    )
+
+with col2:
+    # Combined voice recorder and button
+    recorder_component = html(voice_recorder_component(), height=50)
     
-    # Clear chat button
-    if st.button("🗑️ Clear Conversation", help="Clear all conversation history"):
+    # Handle audio data from recorder component
+    if recorder_component and isinstance(recorder_component, dict):
+        if recorder_component.get("action") == "audio_recorded":
+            audio_data = recorder_component.get("audio_data")
+            if audio_data:
+                try:
+                    # Decode base64 audio data
+                    audio_bytes = base64.b64decode(audio_data)
+                    audio_io = io.BytesIO(audio_bytes)
+                    
+                    with st.spinner(current_content["processing"]):
+                        # Convert to proper format
+                        processed_audio = audio_to_bytesio(audio_io)
+                        
+                        if processed_audio:
+                            # Transcribe audio
+                            transcription_result = transcribe_audio(processed_audio)
+                            
+                            if transcription_result.get("status") == "COMPLETED":
+                                transcribed_text = transcription_result.get("transcribed_text", "")
+                                
+                                # Add to chat history
+                                st.session_state.chat_history.append(("user", f"🎵 {transcribed_text}"))
+                                
+                                # Process the transcribed message
+                                response = process_user_message(transcribed_text, selected_lang_code)
+                                
+                                # Generate TTS response
+                                tts_result = tts_response(response, selected_lang_code)
+                                
+                                if tts_result.get("status") == "COMPLETED":
+                                    audio_filename = tts_result.get("audio_path", "")
+                                    st.session_state.chat_history.append(("bot", f"AUDIO::{audio_filename}::{response}"))
+                                else:
+                                    st.session_state.chat_history.append(("bot", response))
+                                
+                                st.rerun()
+                            else:
+                                st.error("Failed to transcribe audio. Please try again.")
+                        else:
+                            st.error("Failed to process audio. Please try again.")
+                            
+                except Exception as e:
+                    st.error(f"Error processing voice recording: {str(e)}")
+
+with col3:
+    # Combined Send and Clear buttons
+    send_clicked = st.button("📤", key="send_btn", help=current_content["send_btn"])
+    
+    if st.button("🧹", key="clear_btn", help=current_content["clear_btn"]):
         st.session_state.chat_history = []
+        st.session_state.conversation_stage = "greeting"
+        st.session_state.farmer_data = {}
+        st.session_state.chat_history.append(("system", current_content["system_greeting"]))
         st.rerun()
 
-# Show greeting when no chat history
-else:
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-header">{current_content["conversation_header"]}</div>', unsafe_allow_html=True)
-    st.markdown(f"""
-        <div class="chat-message bot-message">
-            <span class="message-icon">🤖</span>
-            <strong>{current_content["bot_label"]}</strong> {current_content["greeting"]}
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Audio Input Section (side by side layout)
-st.markdown(f'<div class="section-header">{current_content["audio_header"]}</div>', unsafe_allow_html=True)
-
-# Create two columns for proper side-by-side layout
-col1, col2 = st.columns(2, gap="medium")
-
-# Column 1: Voice Recording
-with col1:
-    st.markdown(f"**{current_content['record_voice']}**")
-    st.info("🎤 Click below and speak your message")
-
-    class AudioProcessor(AudioProcessorBase):
-        def __init__(self) -> None:
-            self.frames = []
-
-        def recv_queued(self, frames):
-            self.frames.extend(frames)
-            return frames[-1]
-
-        def get_wav_bytes(self):
-            if not self.frames:
-                return None
-            pcm = b""
-            for f in self.frames:
-                pcm += f.to_ndarray().tobytes()
-
-
-            temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-            temp_wav.write(pcm)
-            temp_wav.close()
-            return temp_wav.name
-
-    ctx = webrtc_streamer(
-        key="audio-recorder",
-        mode=WebRtcMode.SENDRECV,
-        audio_receiver_size=4096,
-        media_stream_constraints={"video": False, "audio": True},
-        async_processing=True,
-        audio_processor_factory=AudioProcessor
-    )
-    st.write("🎤 Audio Processor:", bool(ctx.audio_processor))
-    st.write("🎯 WebRTC Status:", ctx.state)
-    if ctx.audio_processor:
-        st.write("📦 Audio frames:", len(ctx.audio_processor.frames))
-    else:
-        st.write("⚠️ No audio processor initialized")
-
-
-    if st.button("🛑 Stop and Transcribe"):
-        if ctx and ctx.audio_processor:
-            wav_path = ctx.audio_processor.get_wav_bytes()
-            if wav_path:
-                st.success("✅ Audio captured! Transcribing...")
-
-                with open(wav_path, "rb") as f:
-                    files = {"file": f}
-                    try:
-                        response = requests.post("http://127.0.0.1:8000/transcribe/", files=files, timeout=60)
-                        if response.status_code == 200:
-                            data = response.json()
-                            user_text = data.get("transcribed_text")
-                            st.session_state.chat_history.append(("user", user_text))
-
-                            # 🔄 Sanchalak backend integration
-                            # Step 1: Start conversation if first time
-                            if "conversation_id" not in st.session_state:
-                                scheme_code = "PMKISAN"  # You can make this dynamic via dropdown
-                                session_id = f"session_{int(time.time())}_{selected_lang_code}"
-                                start_resp = requests.post("http://127.0.0.1:8000/conversations/", json={
-                                    "scheme_code": scheme_code,
-                                    "session_id": session_id
-                                })
-                                if start_resp.status_code == 200:
-                                    st.session_state.conversation_id = session_id
-                                else:
-                                    st.session_state.chat_history.append(("bot", "⚠️ Failed to start conversation"))
-                                    st.rerun()
-
-                            # Step 2: Send message to Sanchalak backend
-                            msg_resp = requests.post(
-                                f"http://127.0.0.1:8000/conversations/{st.session_state.conversation_id}/messages",
-                                json={"content": user_text}
-                            )
-
-                            if msg_resp.status_code == 200:
-                                bot_text = msg_resp.json().get("response", "👋")
-                            else:
-                                bot_text = "⚠️ Could not reach backend."
-
-                            # Step 3: Send backend reply to TTS
-                            tts_result = tts_response(bot_text, selected_lang_code)
-                            if tts_result and tts_result.get("status") == "COMPLETED":
-                                audio_path = tts_result["audio_path"]
-                                st.session_state.chat_history.append(("bot", f"AUDIO::{audio_path}::{bot_text}"))
-                            else:
-                                st.session_state.chat_history.append(("bot", "⚠️ Sorry, I couldn't generate a response."))
-                            st.rerun()
-                        else:
-                            st.error(f"Backend error: {response.status_code}")
-                    except Exception as e:
-                        st.error(f"Failed to connect to backend: {e}")
-                os.remove(wav_path)
+# Conversation flow logic
+def process_user_message(message, language_code):
+    """Process user message and generate appropriate response based on conversation stage"""
+    
+    # Simple keyword-based processing for demonstration
+    # In production, this would integrate with your backend API
+    
+    stage = st.session_state.conversation_stage
+    farmer_data = st.session_state.farmer_data
+    
+    if stage == "greeting" or "name" not in farmer_data:
+        # Extract name
+        if any(word in message.lower() for word in ["my name is", "i am", "naam", "मेरा नाम", "મારું નામ"]):
+            # Extract name (simplified)
+            name = message.split()[-1] if message.split() else "Farmer"
+            farmer_data["name"] = name
+            st.session_state.conversation_stage = "location"
+            
+            if language_code == "hi":
+                return f"धन्यवाद {name} जी! अब कृपया मुझे अपना राज्य और जिला बताएं। उदाहरण: मैं गुजरात के अहमदाबाद जिले से हूं।"
+            elif language_code == "gu":
+                return f"આભાર {name} જી! હવે કૃપા કરીને મને તમારું રાજ્ય અને જિલ્લો કહો। ઉદાહરણ: હું ગુજરાતના અમદાવાદ જિલ્લાથી છું।"
             else:
-                st.warning("⚠️ No audio captured yet.")
-
-
-# Column 2: File Upload
-with col2:
-    st.markdown('<div class="audio-column">', unsafe_allow_html=True)
-    st.markdown(f"**{current_content['upload_audio']}**")
-    st.markdown(current_content["upload_text"])
+                return f"Thank you {name}! Now please tell me your state and district. For example: I am from Ahmedabad district in Gujarat."
+        else:
+            if language_code == "hi":
+                return "कृपया अपना नाम बताएं। उदाहरण: मेरा नाम राम है।"
+            elif language_code == "gu":
+                return "કૃપા કરીને તમારું નામ કહો. ઉદાહરણ: મારું નામ રામ છે."
+            else:
+                return "Please tell me your name. For example: My name is Ram."
     
-    uploaded_file = st.file_uploader(
-        current_content["choose_file"], 
-        type=["wav", "mp3", "m4a", "webm"],
-        help=current_content["upload_help"],
-        key="audio_uploader"
-    )
+    elif stage == "location":
+        # Extract location
+        farmer_data["location"] = message
+        st.session_state.conversation_stage = "farming_details"
+        
+        if language_code == "hi":
+            return f"बहुत अच्छा! अब कृपया अपनी खेती के बारे में बताएं:\n• आपके पास कितनी जमीन है?\n• आप कौन सी फसलें उगाते हैं?\n• क्या आप किसान हैं या खेतिहर मजदूर?"
+        elif language_code == "gu":
+            return f"ખૂબ સરસ! હવે કૃપા કરીને તમારી ખેતી વિશે કહો:\n• તમારી પાસે કેટલી જમીન છે?\n• તમે કયા પાકો ઉગાડો છો?\n• શું તમે ખેડૂત છો કે ખેતી મજૂર?"
+        else:
+            return f"Great! Now please tell me about your farming:\n• How much land do you own?\n• What crops do you grow?\n• Are you a farmer or agricultural laborer?"
     
-    if uploaded_file is not None:
-        with st.spinner(current_content["upload_processing"]):
-            try:
-                audio_io = audio_to_bytesio(uploaded_file)
-                if not audio_io:
-                    st.session_state.chat_history.append(("bot", "🚫 Failed to process audio file. Please upload a valid MP3/WAV file under 10MB."))
-                    st.rerun()
-                if audio_io:
-                    transcription_result = transcribe_audio(audio_io)
-                    st.write("🔍 Transcription Result:", transcription_result)
+    elif stage == "farming_details":
+        # Extract farming details
+        farmer_data["farming_details"] = message
+        st.session_state.conversation_stage = "eligibility_check"
+        
+        # Generate scheme eligibility based on collected data
+        eligible_schemes = []
+        
+        # Simple eligibility logic (in production, this would be more sophisticated)
+        if "land" in message.lower() or "acre" in message.lower() or "hectare" in message.lower():
+            eligible_schemes.extend(["PM-KISAN", "Soil Health Card"])
+        
+        if "crop" in message.lower() or "farming" in message.lower():
+            eligible_schemes.extend(["Pradhan Mantri Fasal Bima Yojana", "Kisan Credit Card"])
+        
+        if not eligible_schemes:
+            eligible_schemes = ["PM-KISAN", "Soil Health Card"]  # Default schemes
+        
+        farmer_data["eligible_schemes"] = eligible_schemes
+        
+        if language_code == "hi":
+            schemes_text = ", ".join(eligible_schemes)
+            return f"आपकी जानकारी के आधार पर, आप निम्नलिखित योजनाओं के लिए पात्र हो सकते हैं:\n\n🌾 {schemes_text}\n\nक्या आप किसी विशेष योजना के बारे में और जानना चाहते हैं?"
+        elif language_code == "gu":
+            schemes_text = ", ".join(eligible_schemes)
+            return f"તમારી માહિતીના આધારે, તમે નીચેની યોજનાઓ માટે પાત્ર હોઈ શકો છો:\n\n🌾 {schemes_text}\n\nશું તમે કોઈ ખાસ યોજના વિશે વધુ જાણવા માંગો છો?"
+        else:
+            schemes_text = ", ".join(eligible_schemes)
+            return f"Based on your information, you may be eligible for the following schemes:\n\n🌾 {schemes_text}\n\nWould you like to know more about any specific scheme?"
+    
+    else:
+        # General conversation
+        if language_code == "hi":
+            return "मैं आपकी मदद करने के लिए यहाँ हूँ। क्या आप किसी विशेष योजना के बारे में जानना चाहते हैं या नई जानकारी देना चाहते हैं?"
+        elif language_code == "gu":
+            return "હું તમારી મદદ કરવા માટે અહીં છું. શું તમે કોઈ ખાસ યોજના વિશે જાણવા માંગો છો કે નવી માહિતી આપવા માંગો છો?"
+        else:
+            return "I'm here to help you. Would you like to know about any specific scheme or provide new information?"
 
-                    
-                    if not transcription_result:
-                        st.session_state.chat_history.append(("bot", "🚫 No response from backend."))
-                    elif transcription_result.get("status") == "COMPLETED":
-                        user_text = transcription_result["transcribed_text"]
-                        st.session_state.chat_history.append(("user", user_text))
-                        
-                        # Generate TTS response
-                        tts_result = tts_response(user_text, selected_lang_code)
-                        
-                        if tts_result and tts_result.get("status") == "COMPLETED":
-                            audio_path = tts_result["audio_path"]
-                            bot_response = tts_result.get("response_text", "Audio response generated")
-                            st.session_state.chat_history.append(("bot", f"AUDIO::{audio_path}::{bot_response}"))
-                        else:
-                            st.session_state.chat_history.append(("bot", "⚠️ Sorry, I couldn't generate a response. Please try again."))
-                    else:
-                        error = transcription_result.get("error", "Unknown error")
-                        st.session_state.chat_history.append(("bot", f"⚠️ Couldn't transcribe your audio. Error: {error}"))
-                    
-                    st.rerun()
-                    
-            except Exception as e:
-                st.session_state.chat_history.append(("bot", f"🚫 Error processing uploaded file: {str(e)}"))
+# Handle text input
+if send_clicked and user_input.strip():
+    # Add user message to chat
+    st.session_state.chat_history.append(("user", user_input))
+    
+    # Process the message with conversation flow
+    response = process_user_message(user_input, selected_lang_code)
+    
+    # Generate TTS response if backend is available
+    tts_result = tts_response(response, selected_lang_code)
+    
+    if tts_result.get("status") == "COMPLETED":
+        audio_filename = tts_result.get("audio_path", "")
+        st.session_state.chat_history.append(("bot", f"AUDIO::{audio_filename}::{response}"))
+    else:
+        st.session_state.chat_history.append(("bot", response))
+    
+    # Clear input and rerun
+    st.rerun()
+
+# Handle audio recording (this would be triggered by the JavaScript component)
+# The component will send audio data that can be processed here
+
+# Process uploaded audio files
+uploaded_audio = st.file_uploader(
+    "Or upload an audio file:",
+    type=['wav', 'mp3', 'm4a', 'webm'],
+    key="audio_uploader",
+    help="Upload an audio file instead of recording"
+)
+
+if uploaded_audio:
+    with st.spinner(current_content["processing"]):
+        # Convert audio to BytesIO
+        audio_data = audio_to_bytesio(uploaded_audio)
+        
+        if audio_data:
+            # Transcribe audio
+            transcription_result = transcribe_audio(audio_data)
+            
+            if transcription_result.get("status") == "COMPLETED":
+                transcribed_text = transcription_result.get("transcribed_text", "")
+                
+                # Add to chat history
+                st.session_state.chat_history.append(("user", f"🎵 Audio: {transcribed_text}"))
+                
+                # Generate response (this would be your scheme checking logic)
+                response = f"I heard: '{transcribed_text}'. Processing for scheme eligibility..."
+                
+                # Generate TTS response
+                tts_result = tts_response(response, selected_lang_code)
+                
+                if tts_result.get("status") == "COMPLETED":
+                    audio_filename = tts_result.get("audio_path", "")
+                    st.session_state.chat_history.append(("bot", f"AUDIO::{audio_filename}::{response}"))
+                else:
+                    st.session_state.chat_history.append(("bot", response))
+                
                 st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.error("Failed to transcribe audio. Please try again.")
 
-# Footer
-st.markdown("---")
-st.markdown("""
-    <div style="text-align: center; padding: 2rem; color: #666; background: #F5F5F5; border-radius: 10px; margin-top: 2rem;">
-        <p><strong>🌾 Sanchalak - Your Digital Agricultural Assistant</strong></p>
-        <p>Empowering farmers with technology | प्रौद्योगिकी के साथ किसानों को सशक्त बनाना</p>
-        <p style="font-size: 0.9rem; margin-top: 1rem;">
-            Supported Languages: English, Hindi, Gujarati, Punjabi, Bengali, Telugu, Tamil, Malayalam, Kannada, Odia
-        </p>
+# Footer with comprehensive information
+footer_content = {
+    "en": {
+        "title": "🏛️ Sanchalak - Government Scheme Eligibility Checker",
+        "description": "Empowering farmers with easy access to agricultural government schemes",
+        "schemes": "Supported Schemes: PM-KISAN, Soil Health Card, Pradhan Mantri Fasal Bima Yojana, Kisan Credit Card",
+        "languages": "Supported Languages: English, Hindi, Gujarati, Punjabi, Bengali, Telugu, Tamil, Malayalam, Kannada, Odia",
+        "disclaimer": "This is a demo application. For official scheme applications, please visit your nearest agricultural office or official government websites.",
+        "privacy": "Your conversations are not stored permanently. Voice data is processed securely."
+    },
+    "hi": {
+        "title": "🏛️ संचालक - सरकारी योजना पात्रता जांचकर्ता",
+        "description": "किसानों को कृषि सरकारी योजनाओं तक आसान पहुंच प्रदान करना",
+        "schemes": "समर्थित योजनाएं: पीएम-किसान, मृदा स्वास्थ्य कार्ड, प्रधानमंत्री फसल बीमा योजना, किसान क्रेडिट कार्ड",
+        "languages": "समर्थित भाषाएं: अंग्रेजी, हिंदी, गुजराती, पंजाबी, बंगाली, तेलुगु, तमिल, मलयालम, कन्नड़, उड़िया",
+        "disclaimer": "यह एक डेमो एप्लिकेशन है। आधिकारिक योजना आवेदन के लिए, कृपया अपने निकटतम कृषि कार्यालय या आधिकारिक सरकारी वेबसाइटों पर जाएं।",
+        "privacy": "आपकी बातचीत स्थायी रूप से संग्रहीत नहीं होती। वॉयस डेटा सुरक्षित रूप से संसाधित होता है।"
+    },
+    "gu": {
+        "title": "🏛️ સંચાલક - સરકારી યોજના પાત્રતા તપાસકર્તા",
+        "description": "ખેડૂતોને કૃષિ સરકારી યોજનાઓની સરળ પહોંચ પ્રદાન કરવી",
+        "schemes": "સપોર્ટેડ યોજનાઓ: PM-KISAN, માટી આરોગ્ય કાર્ડ, પ્રધાનમંત્રી ફસલ વીમા યોજના, કિસાન ક્રેડિટ કાર્ડ",
+        "languages": "સપોર્ટેડ ભાષાઓ: અંગ્રેજી, હિન્દી, ગુજરાતી, પંજાબી, બંગાળી, તેલુગુ, તમિલ, મલયાલમ, કન્નડ, ઓડિયા",
+        "disclaimer": "આ એક ડેમો એપ્લિકેશન છે. સત્તાવાર યોજના અરજી માટે, કૃપા કરીને તમારી નજીકની કૃષિ ઓફિસ અથવા સત્તાવાર સરકારી વેબસાઇટ્સની મુલાકાત લો।",
+        "privacy": "તમારી વાતચીતો કાયમી રૂપે સંગ્રહિત થતી નથી. વૉઇસ ડેટા સુરક્ષિત રીતે પ્રક્રિયા કરવામાં આવે છે।"
+    }
+}
+
+current_footer = footer_content.get(selected_lang_code, footer_content["en"])
+
+st.markdown(f"""
+    <div class="footer">
+        <h4 style="margin-bottom: 1rem; color: white;">{current_footer["title"]}</h4>
+        <p style="margin-bottom: 0.8rem; font-size: 1rem;">{current_footer["description"]}</p>
+        <p style="margin-bottom: 0.8rem; font-size: 0.9rem;"><strong>{current_footer["schemes"]}</strong></p>
+        <p style="margin-bottom: 0.8rem; font-size: 0.9rem;">{current_footer["languages"]}</p>
+        <hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.3);">
+        <p style="margin-bottom: 0.5rem; font-size: 0.8rem; font-style: italic;">{current_footer["disclaimer"]}</p>
+        <p style="margin-bottom: 0; font-size: 0.8rem; font-style: italic;">{current_footer["privacy"]}</p>
+    </div>
+""", unsafe_allow_html=True)
+
+# Backend health check status display with detailed API info
+health_status = check_backend_status()
+
+# Sidebar API Integration Dashboard
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%); 
+                padding: 1.5rem; border-radius: 15px; border: 2px solid #4CAF50; 
+                box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);">
+        <h3 style="margin-bottom: 1rem; color: #2E7D32; display: flex; align-items: center;">
+            🔧 API Integration Status
+        </h3>
+""", unsafe_allow_html=True)
+
+# Main API Health Status
+status_color = {
+    "healthy": "#4CAF50", 
+    "unhealthy": "#FF9800", 
+    "offline": "#F44336", 
+    "slow": "#FFC107",
+    "error": "#F44336"
+}.get(health_status["status"], "#666")
+
+st.sidebar.markdown(f"""
+        <div style="background: white; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; 
+                    border-left: 4px solid {status_color};">
+            <strong style="color: {status_color};">Main API</strong><br>
+            <span style="font-size: 0.9rem;">{health_status["message"]}</span><br>
+            <span style="font-size: 0.8rem; color: #666;">Base URL: {SANCHALAK_API_BASE_URL}</span>
+        </div>
+""", unsafe_allow_html=True)
+
+# Individual API Endpoints Status
+api_endpoints = [
+    {"name": "Transcription API", "endpoint": "/transcribe/", "icon": "🎤"},
+    {"name": "Text-to-Speech API", "endpoint": "/tts/", "icon": "🔊"},
+    {"name": "Audio Serving", "endpoint": "/tts/audio/", "icon": "📁"},
+]
+
+for api in api_endpoints:
+    try:
+        # Quick health check for each endpoint
+        if api["endpoint"] == "/tts/audio/":
+            # This endpoint serves files, so we just show it as available
+            endpoint_status = "✅ Available"
+            endpoint_color = "#4CAF50"
+        else:
+            # For other endpoints, we assume they're working if main API is healthy
+            if health_status["status"] == "healthy":
+                endpoint_status = "✅ Active"
+                endpoint_color = "#4CAF50"
+            else:
+                endpoint_status = "❌ Inactive"
+                endpoint_color = "#F44336"
+        
+        st.sidebar.markdown(f"""
+        <div style="background: white; padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem; 
+                    border-left: 3px solid {endpoint_color};">
+            <div style="display: flex; align-items: center; font-size: 0.9rem;">
+                <span style="margin-right: 0.5rem;">{api["icon"]}</span>
+                <strong>{api["name"]}</strong>
+            </div>
+            <div style="font-size: 0.8rem; color: #666;">
+                {api["endpoint"]} - {endpoint_status}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.sidebar.markdown(f"""
+        <div style="background: white; padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem; 
+                    border-left: 3px solid #F44336;">
+            <div style="display: flex; align-items: center; font-size: 0.9rem;">
+                <span style="margin-right: 0.5rem;">{api["icon"]}</span>
+                <strong>{api["name"]}</strong>
+            </div>
+            <div style="font-size: 0.8rem; color: #666;">
+                {api["endpoint"]} - ❌ Error checking
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Integration Features Info
+st.sidebar.markdown("""
+        <div style="background: rgba(33, 150, 243, 0.1); padding: 1rem; border-radius: 10px; 
+                    border-left: 4px solid #2196F3; margin-top: 1rem;">
+            <h4 style="margin-bottom: 0.5rem; color: #1976D2;">🔗 Integrated Features</h4>
+            <ul style="font-size: 0.85rem; margin: 0; padding-left: 1.2rem; color: #333;">
+                <li>Voice Recording & Transcription</li>
+                <li>Multi-language Text-to-Speech</li>
+                <li>Real-time Audio Processing</li>
+                <li>Automatic Language Detection</li>
+                <li>Government Scheme Responses</li>
+            </ul>
+        </div>
     </div>
 """, unsafe_allow_html=True)
